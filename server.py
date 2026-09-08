@@ -2,7 +2,6 @@ import os
 import json
 import gzip
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,22 +11,23 @@ from flask import Flask, jsonify, send_from_directory
 
 
 # =========================================================
-# CONFIGURATION
+# SETTINGS
 # =========================================================
 
 BASE = "https://api.upstox.com"
 
-IST = timezone(timedelta(hours=5, minutes=30))
+IST = timezone(
+    timedelta(hours=5, minutes=30)
+)
 
 MIN_PRICE = 20.0
+
 MAX_GAP = 0.50
 
-# ₹10 Crore
 MIN_AVG_TURNOVER = 10_00_00_000.0
 
 LIQUIDITY_DAYS = 20
 
-# Historical API workers
 MAX_WORKERS = 5
 
 CACHE_FILE = "liquidity_cache.json"
@@ -43,7 +43,10 @@ INSTRUMENTS_URL = (
 # FLASK
 # =========================================================
 
-app = Flask(__name__, static_folder=".")
+app = Flask(
+    __name__,
+    static_folder="."
+)
 
 
 # =========================================================
@@ -51,9 +54,16 @@ app = Flask(__name__, static_folder=".")
 # =========================================================
 
 INSTRUMENTS = []
+
 BY_KEY = {}
 
 LIVE = {}
+
+LIQUIDITY_CACHE = {}
+
+LOCK = threading.Lock()
+
+SCAN_THREAD = None
 
 SCAN_STATE = {
     "running": False,
@@ -64,12 +74,8 @@ SCAN_STATE = {
     "checked": 0,
     "total": 0,
     "results": [],
-    "error": None,
+    "error": None
 }
-
-LOCK = threading.Lock()
-
-SCAN_THREAD = None
 
 
 # =========================================================
@@ -84,157 +90,180 @@ http.headers.update({
 
 
 # =========================================================
-# HELPERS
+# BASIC HELPERS
 # =========================================================
 
+def log(message):
+
+    print(
+        message,
+        flush=True
+    )
+
+
 def now_ist():
+
     return datetime.now(IST)
 
 
 def chunks(items, size):
-    for i in range(0, len(items), size):
-        yield items[i:i + size]
+
+    for i in range(
+        0,
+        len(items),
+        size
+    ):
+
+        yield items[
+            i:i + size
+        ]
 
 
-def headers():
-    token = os.getenv("UPSTOX_ACCESS_TOKEN", "").strip()
+def get_headers():
+
+    token = os.getenv(
+        "UPSTOX_ACCESS_TOKEN",
+        ""
+    ).strip()
 
     if not token:
+
         raise RuntimeError(
-            "UPSTOX_ACCESS_TOKEN environment variable is missing."
+            "UPSTOX_ACCESS_TOKEN is missing in Render Environment Variables."
         )
 
     return {
         "Accept": "application/json",
-        "Authorization": f"Bearer {token}",
+        "Authorization": (
+            f"Bearer {token}"
+        )
     }
 
 
 # =========================================================
-# INSTRUMENT FILTER
+# REAL NSE EQUITY FILTER
 # =========================================================
 
 def is_real_equity(x):
-    """
-    Keep only genuine NSE equity shares.
-
-    Exclude:
-    - ETF
-    - SME
-    - BE
-    - BZ
-    - other non-equity instruments
-    """
 
     try:
+
+        exchange = str(
+            x.get(
+                "exchange",
+                ""
+            )
+        ).upper().strip()
+
         segment = str(
-            x.get("segment", "")
+            x.get(
+                "segment",
+                ""
+            )
         ).upper().strip()
 
         instrument_type = str(
-            x.get("instrument_type", "")
+            x.get(
+                "instrument_type",
+                ""
+            )
         ).upper().strip()
 
-        security_type = str(
-            x.get("security_type", "")
+        symbol = str(
+            x.get(
+                "trading_symbol",
+                ""
+            )
         ).upper().strip()
 
-        exchange = str(
-            x.get("exchange", "")
+        key = str(
+            x.get(
+                "instrument_key",
+                ""
+            )
         ).upper().strip()
 
-        trading_symbol = str(
-            x.get("trading_symbol", "")
-        ).upper().strip()
-
-        instrument_key = str(
-            x.get("instrument_key", "")
-        ).upper().strip()
-
-        # Must be NSE
+        # NSE only
         if exchange and exchange != "NSE":
             return False
 
-        # Must be NSE_EQ
+        # NSE_EQ only
         if segment and segment != "NSE_EQ":
             return False
 
-        if instrument_key and not instrument_key.startswith(
+        if key and not key.startswith(
             "NSE_EQ|"
         ):
             return False
 
-        # Must be equity
+        # Equity only
         if instrument_type and instrument_type != "EQ":
             return False
 
-        # Security type, when supplied, should be equity
-        if security_type:
-            allowed_security = {
-                "EQUITY",
-                "EQ",
-                "STOCK"
-            }
-
-            if security_type not in allowed_security:
-                return False
-
-        # Exclude obvious non-equity symbols
-        bad_words = [
+        # Exclude obvious ETF names
+        bad_symbols = [
             "ETF",
-            "LIQUIDBEES",
-            "GOLDBEES",
-            "SILVERBEES",
+            "BEES",
             "MON100",
             "JUNIORBEES",
             "BANKBEES",
             "ITBEES",
+            "GOLDBEES",
+            "SILVERBEES",
             "PHARMABEES",
             "AUTOBEES",
             "PSUBANK",
             "CPSEETF",
-            "SETFNIF",
             "NIFTYBEES",
+            "SETFNIF"
         ]
 
-        for word in bad_words:
-            if word in trading_symbol:
+        for bad in bad_symbols:
+
+            if bad in symbol:
                 return False
 
-        # Exclude SME-style symbols if present
-        if trading_symbol.endswith("-SM"):
+        # Exclude SME style symbols
+        if symbol.endswith(
+            "-SM"
+        ):
             return False
 
-        if trading_symbol.endswith("-BE"):
+        if symbol.endswith(
+            "-BE"
+        ):
             return False
 
-        if trading_symbol.endswith("-BZ"):
+        if symbol.endswith(
+            "-BZ"
+        ):
             return False
-
-        if trading_symbol.endswith("BE"):
-            # Only use this when symbol clearly carries BE suffix.
-            if trading_symbol.endswith("-BE"):
-                return False
 
         return True
 
     except Exception:
+
         return False
 
 
 # =========================================================
-# LOAD UPSTOX INSTRUMENTS
+# LOAD INSTRUMENTS
 # =========================================================
 
 def load_instruments():
+
     global INSTRUMENTS
     global BY_KEY
 
     with LOCK:
+
         if INSTRUMENTS:
+
             return
 
-    print("Loading Upstox complete instruments...")
+    log(
+        "Loading Upstox complete instruments..."
+    )
 
     r = http.get(
         INSTRUMENTS_URL,
@@ -248,61 +277,100 @@ def load_instruments():
     )
 
     data = json.loads(
-        raw.decode("utf-8")
+        raw.decode(
+            "utf-8"
+        )
     )
 
     instruments = []
 
     for x in data:
 
-        if not isinstance(x, dict):
+        if not isinstance(
+            x,
+            dict
+        ):
             continue
 
         if not is_real_equity(x):
             continue
 
-        key = x.get(
+        instrument_key = x.get(
             "instrument_key"
         )
 
-        symbol = x.get(
+        trading_symbol = x.get(
             "trading_symbol"
         )
 
-        if not key or not symbol:
+        if not instrument_key:
+            continue
+
+        if not trading_symbol:
             continue
 
         instruments.append({
-            "instrument_key": key,
-            "trading_symbol": symbol,
-            "name": x.get("name", ""),
-            "isin": x.get("isin", ""),
-            "exchange": x.get("exchange", ""),
-            "segment": x.get("segment", ""),
-            "instrument_type": x.get(
-                "instrument_type", ""
-            ),
-            "security_type": x.get(
-                "security_type", ""
-            ),
+
+            "instrument_key":
+                instrument_key,
+
+            "trading_symbol":
+                trading_symbol,
+
+            "name":
+                x.get(
+                    "name",
+                    ""
+                ),
+
+            "isin":
+                x.get(
+                    "isin",
+                    ""
+                ),
+
+            "exchange":
+                x.get(
+                    "exchange",
+                    ""
+                ),
+
+            "segment":
+                x.get(
+                    "segment",
+                    ""
+                ),
+
+            "instrument_type":
+                x.get(
+                    "instrument_type",
+                    ""
+                )
+
         })
 
     by_key = {
-        x["instrument_key"]: x
+
+        x[
+            "instrument_key"
+        ]: x
+
         for x in instruments
     }
 
     with LOCK:
+
         INSTRUMENTS = instruments
+
         BY_KEY = by_key
 
-    print(
+    log(
         f"Loaded {len(INSTRUMENTS)} NSE EQ stocks."
     )
 
 
 # =========================================================
-# LIQUIDITY CACHE
+# CACHE
 # =========================================================
 
 def load_cache():
@@ -310,9 +378,11 @@ def load_cache():
     if not os.path.exists(
         CACHE_FILE
     ):
+
         return {}
 
     try:
+
         with open(
             CACHE_FILE,
             "r",
@@ -321,24 +391,30 @@ def load_cache():
 
             data = json.load(f)
 
-            if isinstance(data, dict):
+            if isinstance(
+                data,
+                dict
+            ):
+
                 return data
 
     except Exception as e:
 
-        print(
-            "Cache load error:",
-            repr(e)
+        log(
+            f"Cache load error: {e}"
         )
 
     return {}
 
 
-def save_cache(cache):
+def save_cache():
 
     try:
 
-        temp_file = CACHE_FILE + ".tmp"
+        temp_file = (
+            CACHE_FILE
+            + ".tmp"
+        )
 
         with open(
             temp_file,
@@ -347,7 +423,7 @@ def save_cache(cache):
         ) as f:
 
             json.dump(
-                cache,
+                LIQUIDITY_CACHE,
                 f,
                 ensure_ascii=False
             )
@@ -359,9 +435,8 @@ def save_cache(cache):
 
     except Exception as e:
 
-        print(
-            "Cache save error:",
-            repr(e)
+        log(
+            f"Cache save error: {e}"
         )
 
 
@@ -369,49 +444,67 @@ LIQUIDITY_CACHE = load_cache()
 
 
 # =========================================================
-# UPSTOX LIVE QUOTES
+# LIVE UPSTOX QUOTES
 # =========================================================
 
 def fetch_live_quotes():
 
     load_instruments()
 
-    out = []
+    all_quotes = []
 
-    print(
-        f"Requesting live OHLC for "
-        f"{len(INSTRUMENTS)} NSE EQ stocks..."
+    total_stocks = len(
+        INSTRUMENTS
     )
 
-    batch_number = 0
+    log(
+        f"Requesting live OHLC for {total_stocks} NSE EQ stocks..."
+    )
+
+    batch_no = 0
 
     for batch in chunks(
         INSTRUMENTS,
         500
     ):
 
-        batch_number += 1
+        batch_no += 1
 
         keys = ",".join(
-            x["instrument_key"]
-            for x in batch
+
+            item[
+                "instrument_key"
+            ]
+
+            for item in batch
         )
 
         try:
 
-            r = http.get(
-                BASE + "/v3/market-quote/ohlc",
-                headers=headers(),
+            response = http.get(
+
+                BASE
+                + "/v3/market-quote/ohlc",
+
+                headers=get_headers(),
+
                 params={
-                    "instrument_key": keys,
-                    "interval": "1d"
+
+                    "instrument_key":
+                        keys,
+
+                    "interval":
+                        "1d"
                 },
+
                 timeout=30
             )
 
-            r.raise_for_status()
+            response.raise_for_status()
 
-            data = r.json().get(
+            payload = response.json()
+
+            data = payload.get(
                 "data",
                 {}
             )
@@ -420,16 +513,15 @@ def fetch_live_quotes():
                 data,
                 dict
             ):
+
+                log(
+                    f"Batch {batch_no}: invalid response data."
+                )
+
                 continue
 
-            print(
-                f"Live batch {batch_number}: "
-                f"{len(data)} quotes received."
-            )
+            received = 0
 
-            # IMPORTANT:
-            # Upstox dictionary key may be symbol-like.
-            # Actual instrument key is inside instrument_token.
             for _, quote_data in data.items():
 
                 if not isinstance(
@@ -438,42 +530,55 @@ def fetch_live_quotes():
                 ):
                     continue
 
+                # IMPORTANT:
+                # V3 actual instrument key
+                # is available as instrument_token
                 instrument_key = (
+
                     quote_data.get(
                         "instrument_token"
                     )
-                    or quote_data.get(
+
+                    or
+
+                    quote_data.get(
                         "instrument_key"
                     )
                 )
 
                 if not instrument_key:
+
                     continue
 
                 quote_data[
                     "_instrument_key"
                 ] = instrument_key
 
-                out.append(
+                all_quotes.append(
                     quote_data
                 )
 
-        except Exception as e:
+                received += 1
 
-            print(
-                f"Live batch {batch_number} error:",
-                repr(e)
+            log(
+                f"Live batch {batch_no}: {received} quotes received."
             )
 
-    print(
-        f"Total live quotes received: {len(out)}"
+        except Exception as e:
+
+            log(
+                f"Live batch {batch_no} ERROR: {repr(e)}"
+            )
+
+    log(
+        f"Total live quotes received: {len(all_quotes)}"
     )
 
-    return out
+    return all_quotes
 
 
 # =========================================================
-# BUILD LIVE SNAPSHOT
+# BUILD LIVE CANDIDATES
 # =========================================================
 
 def build_live_snapshot():
@@ -482,13 +587,13 @@ def build_live_snapshot():
 
     today = now_ist().date()
 
-    live = []
+    candidates = []
 
     rejected_price = 0
     rejected_open = 0
     rejected_direction = 0
     rejected_gap = 0
-    rejected_error = 0
+    processing_errors = 0
 
     for q in quotes:
 
@@ -504,36 +609,50 @@ def build_live_snapshot():
             )
 
             symbol = (
+
                 meta.get(
                     "trading_symbol"
                 )
+
                 or q.get(
                     "symbol"
                 )
+
                 or ""
             )
 
             if not symbol:
-                rejected_error += 1
+
+                processing_errors += 1
+
                 continue
 
+            # ------------------------------------------------
+            # CURRENT LTP
+            # ------------------------------------------------
+
             price = float(
+
                 q.get(
                     "last_price"
                 )
                 or 0
             )
 
-            # -------------------------------------------------
-            # IMPORTANT:
-            # Upstox V3 current daily OHLC is in live_ohlc
-            # -------------------------------------------------
+            # ------------------------------------------------
+            # TODAY'S LIVE OHLC
+            # ------------------------------------------------
 
-            live_ohlc = q.get(
-                "live_ohlc"
-            ) or {}
+            live_ohlc = (
+
+                q.get(
+                    "live_ohlc"
+                )
+                or {}
+            )
 
             op = float(
+
                 live_ohlc.get(
                     "open"
                 )
@@ -541,6 +660,7 @@ def build_live_snapshot():
             )
 
             low = float(
+
                 live_ohlc.get(
                     "low"
                 )
@@ -548,57 +668,69 @@ def build_live_snapshot():
             )
 
             volume = float(
+
                 live_ohlc.get(
                     "volume"
                 )
-                or q.get(
-                    "volume"
-                )
                 or 0
             )
 
+            # ------------------------------------------------
+            # AVERAGE TRADED PRICE
+            # ------------------------------------------------
+
             avg_price = float(
+
                 q.get(
                     "average_price"
                 )
+
                 or live_ohlc.get(
                     "average_price"
                 )
+
                 or 0
             )
 
-            # -------------------------------------------------
+            # ------------------------------------------------
+            # CONDITION 1
             # PRICE > ₹20
-            # -------------------------------------------------
+            # ------------------------------------------------
 
             if price <= MIN_PRICE:
 
                 rejected_price += 1
+
                 continue
 
-            # -------------------------------------------------
-            # OPEN / LOW MUST EXIST
-            # -------------------------------------------------
+            # ------------------------------------------------
+            # OPEN AND LOW AVAILABLE
+            # ------------------------------------------------
 
             if op <= 0 or low <= 0:
 
                 rejected_open += 1
+
                 continue
 
-            # -------------------------------------------------
-            # LTP > TODAY OPEN
-            # -------------------------------------------------
+            # ------------------------------------------------
+            # CONDITION 2
+            # LTP > OPEN
+            # ------------------------------------------------
 
             if price <= op:
 
                 rejected_direction += 1
+
                 continue
 
-            # -------------------------------------------------
-            # OPEN-LOW GAP
-            # -------------------------------------------------
+            # ------------------------------------------------
+            # CONDITION 3
+            # OPEN-LOW GAP <= 0.50%
+            # ------------------------------------------------
 
             gap = (
+
                 (op - low)
                 / op
             ) * 100.0
@@ -606,116 +738,129 @@ def build_live_snapshot():
             if gap > MAX_GAP:
 
                 rejected_gap += 1
+
                 continue
 
-            # -------------------------------------------------
+            # ------------------------------------------------
             # LIVE TURNOVER
-            # -------------------------------------------------
+            # ------------------------------------------------
 
-            if avg_price > 0:
+            turnover_price = (
 
-                live_turnover = (
-                    volume * avg_price
-                )
+                avg_price
 
-            else:
+                if avg_price > 0
 
-                live_turnover = (
-                    volume * price
-                )
+                else price
+            )
 
-            live.append({
+            live_turnover = (
 
-                "key": instrument_key,
+                volume
+                * turnover_price
+            )
 
-                "symbol": symbol,
+            candidates.append({
 
-                "price": price,
+                "key":
+                    instrument_key,
 
-                "open": op,
+                "symbol":
+                    symbol,
 
-                "low": low,
+                "price":
+                    price,
 
-                "gap": gap,
+                "open":
+                    op,
 
-                "volume": volume,
+                "low":
+                    low,
 
-                "live_turnover": live_turnover,
+                "gap":
+                    gap,
 
-                "today": today.isoformat()
+                "volume":
+                    volume,
+
+                "live_turnover":
+                    live_turnover,
+
+                "live_turnover_cr":
+                    live_turnover
+                    / 1_00_00_000,
+
+                "today":
+                    today.isoformat()
 
             })
 
         except Exception as e:
 
-            rejected_error += 1
+            processing_errors += 1
 
-            print(
-                "Quote processing error:",
-                repr(e)
+            log(
+                f"Quote processing error: {repr(e)}"
             )
 
-            continue
-
-    # Smallest Open-Low Gap first
-    live.sort(
-        key=lambda x: x["gap"]
+    # Lowest gap first
+    candidates.sort(
+        key=lambda x: x[
+            "gap"
+        ]
     )
 
     with LOCK:
 
         LIVE.clear()
 
-        LIVE.update({
-            x["symbol"]: x
-            for x in live
-        })
+        for item in candidates:
 
-    print(
+            LIVE[
+                item["symbol"]
+            ] = item
+
+    log(
         "----------------------------------------"
     )
 
-    print(
+    log(
         f"Live quotes: {len(quotes)}"
     )
 
-    print(
-        f"Live candidates: {len(live)}"
+    log(
+        f"Live candidates: {len(candidates)}"
     )
 
-    print(
-        f"Rejected price <= ₹20: "
-        f"{rejected_price}"
+    log(
+        f"Rejected price <= ₹20: {rejected_price}"
     )
 
-    print(
-        f"Rejected missing Open/Low: "
-        f"{rejected_open}"
+    log(
+        f"Rejected missing Open/Low: {rejected_open}"
     )
 
-    print(
-        f"Rejected LTP <= Open: "
-        f"{rejected_direction}"
+    log(
+        f"Rejected LTP <= Open: {rejected_direction}"
     )
 
-    print(
-        f"Rejected Gap > {MAX_GAP}%: "
-        f"{rejected_gap}"
+    log(
+        f"Rejected Gap > {MAX_GAP}%: {rejected_gap}"
     )
 
-    print(
-        f"Quote errors: {rejected_error}"
+    log(
+        f"Processing errors: {processing_errors}"
     )
 
-    print(
+    log(
         "----------------------------------------"
     )
 
-    return live
+    return candidates
 
 
 # =========================================================
-# HISTORICAL 20-DAY REAL TURNOVER
+# HISTORICAL 20 DAY TURNOVER
 # =========================================================
 
 def historical_20day_turnover(
@@ -724,18 +869,19 @@ def historical_20day_turnover(
 ):
 
     yesterday = (
+
         today
         - timedelta(days=1)
     )
 
-    # 45 calendar days gives enough room
-    # for weekends/holidays.
     start_date = (
+
         today
         - timedelta(days=45)
     )
 
     url = (
+
         BASE
         + "/v3/historical-candle/"
         + quote(
@@ -748,16 +894,22 @@ def historical_20day_turnover(
         + start_date.isoformat()
     )
 
-    r = http.get(
+    response = http.get(
+
         url,
-        headers=headers(),
+
+        headers=get_headers(),
+
         timeout=20
     )
 
-    r.raise_for_status()
+    response.raise_for_status()
+
+    data = response.json()
 
     candles = (
-        r.json()
+
+        data
         .get("data", {})
         .get("candles", [])
     )
@@ -767,6 +919,7 @@ def historical_20day_turnover(
     for candle in candles:
 
         if len(candle) < 6:
+
             continue
 
         try:
@@ -782,14 +935,17 @@ def historical_20day_turnover(
             )
 
             if close <= 0:
+
                 continue
 
             if volume <= 0:
+
                 continue
 
             # Real turnover
             turnover = (
-                close * volume
+                close
+                * volume
             )
 
             valid.append(
@@ -800,9 +956,10 @@ def historical_20day_turnover(
             )
 
         except Exception:
+
             continue
 
-    # Newest first
+    # Newest valid trading days first
     valid.sort(
         key=lambda x: x[0],
         reverse=True
@@ -812,23 +969,26 @@ def historical_20day_turnover(
 
         return None
 
-    turnovers = [
-        x[1]
-        for x in valid[
+    last_20 = [
+
+        item[1]
+
+        for item in valid[
             :LIQUIDITY_DAYS
         ]
     ]
 
     average_turnover = (
-        sum(turnovers)
-        / len(turnovers)
+
+        sum(last_20)
+        / len(last_20)
     )
 
     return average_turnover
 
 
 # =========================================================
-# HISTORICAL LIQUIDITY CHECK
+# GET CACHED / HISTORICAL LIQUIDITY
 # =========================================================
 
 def get_liquidity(
@@ -837,43 +997,48 @@ def get_liquidity(
 ):
 
     cache_key = (
+
         f"{instrument_key}|"
         f"{today.isoformat()}|"
         f"{LIQUIDITY_DAYS}"
     )
 
-    # -----------------------------------------------------
-    # CACHE
-    # -----------------------------------------------------
+    # ------------------------------------------------
+    # CACHE CHECK
+    # ------------------------------------------------
 
     if cache_key in LIQUIDITY_CACHE:
 
+        cached = (
+            LIQUIDITY_CACHE[
+                cache_key
+            ]
+        )
+
+        if cached is None:
+
+            return None
+
         try:
-
-            cached = (
-                LIQUIDITY_CACHE[
-                    cache_key
-                ]
-            )
-
-            if cached is None:
-                return None
 
             return float(
                 cached
             )
 
         except Exception:
+
             pass
 
-    # -----------------------------------------------------
-    # API
-    # -----------------------------------------------------
+    # ------------------------------------------------
+    # HISTORICAL API
+    # ------------------------------------------------
 
     try:
 
         value = historical_20day_turnover(
+
             instrument_key,
+
             today
         )
 
@@ -885,28 +1050,26 @@ def get_liquidity(
 
     except Exception as e:
 
-        print(
-            f"Historical error "
-            f"{instrument_key}:",
-            repr(e)
+        log(
+            f"Historical error {instrument_key}: {repr(e)}"
         )
 
         return None
 
 
 # =========================================================
-# RUN HISTORICAL SCAN
+# HISTORICAL SCAN
 # =========================================================
 
 def run_historical_scan(
     candidates
 ):
 
-    global SCAN_STATE
-
     today = now_ist().date()
 
-    total = len(candidates)
+    total = len(
+        candidates
+    )
 
     with LOCK:
 
@@ -922,53 +1085,48 @@ def run_historical_scan(
             "results"
         ] = []
 
-        SCAN_STATE[
-            "error"
-        ] = None
-
     if total == 0:
 
-        with LOCK:
+        log(
+            "No live candidates. Historical check not required."
+        )
 
-            SCAN_STATE[
-                "finished"
-            ] = True
+        with LOCK:
 
             SCAN_STATE[
                 "running"
             ] = False
 
             SCAN_STATE[
+                "finished"
+            ] = True
+
+            SCAN_STATE[
                 "finished_at"
             ] = now_ist().isoformat()
 
-        print(
-            "No live candidates. "
-            "Historical scan not required."
-        )
-
         return
 
-    results = []
-
-    print(
-        f"Starting historical liquidity "
-        f"check for {total} candidates..."
+    log(
+        f"Starting historical liquidity check for {total} candidates..."
     )
 
-    # -----------------------------------------------------
-    # Parallel historical checks
-    # -----------------------------------------------------
+    results = []
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
     ) as executor:
 
         future_map = {
+
             executor.submit(
+
                 get_liquidity,
+
                 item["key"],
+
                 today
+
             ): item
 
             for item in candidates
@@ -989,10 +1147,15 @@ def run_historical_scan(
                 )
 
                 if (
+
                     average_turnover
                     is not None
-                    and average_turnover
+
+                    and
+
+                    average_turnover
                     >= MIN_AVG_TURNOVER
+
                 ):
 
                     row = dict(
@@ -1006,16 +1169,8 @@ def run_historical_scan(
                     row[
                         "avg_turnover_cr"
                     ] = (
-                        average_turnover
-                        / 1_00_00_000
-                    )
 
-                    row[
-                        "live_turnover_cr"
-                    ] = (
-                        item[
-                            "live_turnover"
-                        ]
+                        average_turnover
                         / 1_00_00_000
                     )
 
@@ -1025,9 +1180,8 @@ def run_historical_scan(
 
             except Exception as e:
 
-                print(
-                    "Historical future error:",
-                    repr(e)
+                log(
+                    f"Historical future error: {repr(e)}"
                 )
 
             with LOCK:
@@ -1036,12 +1190,11 @@ def run_historical_scan(
                     "checked"
                 ] += 1
 
-                # Progressive results
-                current_results = list(
+                temporary = list(
                     results
                 )
 
-                current_results.sort(
+                temporary.sort(
                     key=lambda x: x[
                         "gap"
                     ]
@@ -1049,14 +1202,21 @@ def run_historical_scan(
 
                 SCAN_STATE[
                     "results"
-                ] = current_results
+                ] = temporary
 
-    # Save cache after scan
-    save_cache(
-        LIQUIDITY_CACHE
-    )
+                checked = (
+                    SCAN_STATE[
+                        "checked"
+                    ]
+                )
 
-    # Final sort
+            log(
+                f"Historical liquidity check: "
+                f"{checked}/{total}"
+            )
+
+    save_cache()
+
     results.sort(
         key=lambda x: x[
             "gap"
@@ -1070,37 +1230,120 @@ def run_historical_scan(
         ] = results
 
         SCAN_STATE[
-            "finished"
-        ] = True
-
-        SCAN_STATE[
             "running"
         ] = False
+
+        SCAN_STATE[
+            "finished"
+        ] = True
 
         SCAN_STATE[
             "finished_at"
         ] = now_ist().isoformat()
 
-    print(
+    log(
         "========================================"
     )
 
-    print(
-        f"Historical scan finished."
+    log(
+        f"Historical scan finished. "
+        f"Final qualifying stocks: {len(results)}"
     )
 
-    print(
-        f"Final qualifying stocks: "
-        f"{len(results)}"
-    )
-
-    print(
+    log(
         "========================================"
     )
 
 
 # =========================================================
-# FULL SCAN STARTER
+# SCAN WORKER
+# =========================================================
+
+def scan_worker():
+
+    try:
+
+        log(
+            "========================================"
+        )
+
+        log(
+            "STARTING OPEN-LOW LIQUIDITY SCAN"
+        )
+
+        log(
+            f"Minimum price: ₹{MIN_PRICE}"
+        )
+
+        log(
+            f"Maximum Open-Low gap: {MAX_GAP}%"
+        )
+
+        log(
+            "Minimum 20-day average real turnover: ₹10 Cr"
+        )
+
+        log(
+            "Universe: NSE EQ only"
+        )
+
+        log(
+            "========================================"
+        )
+
+        # ---------------------------------------------
+        # FAST LIVE STAGE
+        # ---------------------------------------------
+
+        candidates = (
+            build_live_snapshot()
+        )
+
+        with LOCK:
+
+            SCAN_STATE[
+                "live_candidates"
+            ] = len(candidates)
+
+            SCAN_STATE[
+                "total"
+            ] = len(candidates)
+
+        # ---------------------------------------------
+        # HISTORICAL STAGE
+        # ---------------------------------------------
+
+        run_historical_scan(
+            candidates
+        )
+
+    except Exception as e:
+
+        log(
+            f"SCAN ERROR: {repr(e)}"
+        )
+
+        with LOCK:
+
+            SCAN_STATE[
+                "error"
+            ] = str(e)
+
+            SCAN_STATE[
+                "running"
+            ] = False
+
+            SCAN_STATE[
+                "finished"
+            ] = True
+
+            SCAN_STATE[
+                "finished_at"
+            ] = now_ist().isoformat()
+
+
+# =========================================================
+# START SCAN
 # =========================================================
 
 def start_scan(
@@ -1108,35 +1351,48 @@ def start_scan(
 ):
 
     global SCAN_THREAD
-    global SCAN_STATE
 
     with LOCK:
 
+        # Existing scan is running
         if (
-            SCAN_STATE["running"]
-            and not force
+
+            SCAN_STATE[
+                "running"
+            ]
+
+            and
+
+            not force
+
         ):
 
-            print(
-                "Scan already running. "
-                "Not starting another scan."
+            log(
+                "Scan already running. Reusing existing scan."
             )
 
-            return
+            return False
 
-        # If already finished and not forced,
-        # simply reuse existing result.
+        # Existing completed result
         if (
-            SCAN_STATE["finished"]
-            and not force
+
+            SCAN_STATE[
+                "finished"
+            ]
+
+            and
+
+            not force
+
         ):
 
-            print(
-                "Existing scan result reused."
+            log(
+                "Existing completed scan reused."
             )
 
-            return
+            return False
 
+        # Reset state
         SCAN_STATE[
             "running"
         ] = True
@@ -1173,98 +1429,24 @@ def start_scan(
             "error"
         ] = None
 
-    def worker():
-
-        global SCAN_STATE
-
-        try:
-
-            print(
-                "========================================"
-            )
-
-            print(
-                "STARTING OPEN-LOW LIQUIDITY SCAN"
-            )
-
-            print(
-                f"Minimum price: ₹{MIN_PRICE}"
-            )
-
-            print(
-                f"Maximum Open-Low gap: {MAX_GAP}%"
-            )
-
-            print(
-                f"Minimum 20-day average turnover: "
-                f"₹{MIN_AVG_TURNOVER / 1_00_00_000:.2f} Cr"
-            )
-
-            print(
-                "========================================"
-            )
-
-            # ---------------------------------------------
-            # Fast live stage
-            # ---------------------------------------------
-
-            candidates = (
-                build_live_snapshot()
-            )
-
-            with LOCK:
-
-                SCAN_STATE[
-                    "live_candidates"
-                ] = len(candidates)
-
-                SCAN_STATE[
-                    "total"
-                ] = len(candidates)
-
-            # ---------------------------------------------
-            # Historical stage
-            # ---------------------------------------------
-
-            run_historical_scan(
-                candidates
-            )
-
-        except Exception as e:
-
-            print(
-                "SCAN ERROR:",
-                repr(e)
-            )
-
-            with LOCK:
-
-                SCAN_STATE[
-                    "error"
-                ] = str(e)
-
-                SCAN_STATE[
-                    "running"
-                ] = False
-
-                SCAN_STATE[
-                    "finished"
-                ] = True
-
-                SCAN_STATE[
-                    "finished_at"
-                ] = now_ist().isoformat()
-
     SCAN_THREAD = threading.Thread(
-        target=worker,
+
+        target=scan_worker,
+
         daemon=True
     )
 
     SCAN_THREAD.start()
 
+    log(
+        "Scan worker started."
+    )
+
+    return True
+
 
 # =========================================================
-# API: SCAN
+# API / SCAN
 # =========================================================
 
 @app.route(
@@ -1273,21 +1455,22 @@ def start_scan(
 )
 def api_scan():
 
-    # -----------------------------------------------------
-    # IMPORTANT:
-    # Normal /api/scan does NOT restart a running scan.
-    # Opening another browser tab will reuse the same state.
-    # -----------------------------------------------------
+    # First request starts scan.
+    # Further requests only read status.
 
     with LOCK:
 
-        running = SCAN_STATE[
-            "running"
-        ]
+        running = (
+            SCAN_STATE[
+                "running"
+            ]
+        )
 
-        finished = SCAN_STATE[
-            "finished"
-        ]
+        finished = (
+            SCAN_STATE[
+                "finished"
+            ]
+        )
 
     if not running and not finished:
 
@@ -1297,11 +1480,11 @@ def api_scan():
 
     with LOCK:
 
-        state = dict(
+        response = dict(
             SCAN_STATE
         )
 
-        state[
+        response[
             "results"
         ] = list(
             SCAN_STATE[
@@ -1310,12 +1493,12 @@ def api_scan():
         )
 
     return jsonify(
-        state
+        response
     )
 
 
 # =========================================================
-# API: SCAN NOW
+# API / SCAN-NOW
 # =========================================================
 
 @app.route(
@@ -1324,8 +1507,16 @@ def api_scan():
 )
 def api_scan_now():
 
-    print(
-        "Manual Scan Now requested."
+    log(
+        "========================================"
+    )
+
+    log(
+        "SCAN NOW BUTTON PRESSED"
+    )
+
+    log(
+        "========================================"
     )
 
     start_scan(
@@ -1334,11 +1525,11 @@ def api_scan_now():
 
     with LOCK:
 
-        state = dict(
+        response = dict(
             SCAN_STATE
         )
 
-        state[
+        response[
             "results"
         ] = list(
             SCAN_STATE[
@@ -1347,12 +1538,12 @@ def api_scan_now():
         )
 
     return jsonify(
-        state
+        response
     )
 
 
 # =========================================================
-# API: HEALTH
+# API / HEALTH
 # =========================================================
 
 @app.route(
@@ -1365,15 +1556,14 @@ def api_health():
 
         return jsonify({
 
-            "status": "ok",
+            "status":
+                "ok",
 
-            "stocks_loaded": len(
-                INSTRUMENTS
-            ),
+            "stocks_loaded":
+                len(INSTRUMENTS),
 
-            "live_candidates": len(
-                LIVE
-            ),
+            "live_candidates":
+                len(LIVE),
 
             "scan_running":
                 SCAN_STATE[
@@ -1383,13 +1573,18 @@ def api_health():
             "scan_finished":
                 SCAN_STATE[
                     "finished"
+                ],
+
+            "error":
+                SCAN_STATE[
+                    "error"
                 ]
 
         })
 
 
 # =========================================================
-# API: CONFIG
+# API / CONFIG
 # =========================================================
 
 @app.route(
@@ -1400,9 +1595,11 @@ def api_config():
 
     return jsonify({
 
-        "min_price": MIN_PRICE,
+        "min_price":
+            MIN_PRICE,
 
-        "max_gap_percent": MAX_GAP,
+        "max_gap_percent":
+            MAX_GAP,
 
         "min_average_turnover":
             MIN_AVG_TURNOVER,
@@ -1445,19 +1642,19 @@ def index():
 
 def startup():
 
-    print(
+    log(
         "========================================"
     )
 
-    print(
+    log(
         "Open-Low Liquidity Scanner"
     )
 
-    print(
+    log(
         "Server starting..."
     )
 
-    print(
+    log(
         "========================================"
     )
 
@@ -1467,22 +1664,16 @@ def startup():
 
     except Exception as e:
 
-        print(
-            "Initial instrument loading failed:",
-            repr(e)
+        log(
+            f"Initial instrument loading failed: {repr(e)}"
         )
 
-        # Do not stop Flask.
-        # The scanner will try again when requested.
-
-    # Do NOT start a historical scan here.
-    #
-    # This is intentional.
-    # Scan begins when /api/scan is requested.
+        # Server should remain alive.
+        # Scanner will retry when requested.
 
 
 # =========================================================
-# MAIN
+# RUN
 # =========================================================
 
 startup()
@@ -1498,7 +1689,10 @@ if __name__ == "__main__":
     )
 
     app.run(
+
         host="0.0.0.0",
+
         port=port,
+
         debug=False
     )
