@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, redirect, render_template_string
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
@@ -8,132 +8,94 @@ import io
 import time
 import os
 import math
-import uuid
 
 app = Flask(__name__)
 
 # ============================================================
-# SCANNER CONDITIONS
+# SETTINGS
 # ============================================================
 
 MIN_AVG_TURNOVER_CR = 10.0
 MAX_OPEN_LOW_GAP = 0.50
-
 HISTORICAL_DAYS_REQUIRED = 20
-HISTORICAL_LOOKBACK_DAYS = 75
-
-REQUEST_TIMEOUT = 15
 MAX_WORKERS = 4
 
-# ============================================================
-# NSE URLS
-# ============================================================
-
 NSE_HOME = "https://www.nseindia.com"
+EQUITY_LIST_URL = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+ETF_LIST_URL = "https://nsearchives.nseindia.com/content/equities/eq_etfseclist.csv"
 
-NSE_EQUITY_LIST_URLS = [
-    "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
-    "https://archives.nseindia.com/content/equities/EQUITY_L.csv",
-]
-
-NSE_ETF_LIST_URLS = [
-    "https://nsearchives.nseindia.com/content/equities/eq_etfseclist.csv",
-    "https://archives.nseindia.com/content/equities/eq_etfseclist.csv",
-]
-
-NSE_BHAVCOPY_URLS = [
+BHAVCOPY_URLS = [
     "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{date}.csv",
     "https://archives.nseindia.com/products/content/sec_bhavdata_full_{date}.csv",
 ]
 
-NSE_QUOTE_URL = "https://www.nseindia.com/api/quote-equity"
+QUOTE_URL = "https://www.nseindia.com/api/quote-equity?symbol={symbol}"
+TRADE_INFO_URL = (
+    "https://www.nseindia.com/api/quote-equity"
+    "?symbol={symbol}&section=trade_info"
+)
 
 # ============================================================
-# NSE HEADERS
+# GLOBAL STATE
 # ============================================================
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/139.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json,text/plain,*/*",
-    "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-    "Referer": "https://www.nseindia.com/",
-    "Origin": "https://www.nseindia.com",
-    "Connection": "keep-alive",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
+state_lock = threading.Lock()
+
+scan_state = {
+    "status": "ready",
+    "message": "Scanner तैयार है। Scan Now दबाकर scan शुरू करें।",
+    "progress": 0,
+    "total": 0,
+    "done": 0,
+    "results": [],
+    "started": "",
+    "finished": "",
+    "error": ""
 }
 
+historical_cache = {}
+equity_symbols_cache = None
+etf_symbols_cache = None
+
 # ============================================================
-# THREAD-LOCAL NSE SESSION
+# NSE SESSION
 # ============================================================
 
-thread_local = threading.local()
+_thread_local = threading.local()
 
 
 def get_nse_session():
-    if not hasattr(thread_local, "session"):
-        s = requests.Session()
-        s.headers.update(HEADERS)
+    if not hasattr(_thread_local, "session"):
+        session = requests.Session()
+
+        session.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Linux; Android 10) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/152.0.0.0 Mobile Safari/537.36"
+            ),
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.nseindia.com/",
+            "Connection": "keep-alive",
+        })
+
+        _thread_local.session = session
 
         try:
-            s.get(
+            session.get(
                 NSE_HOME,
-                timeout=REQUEST_TIMEOUT
+                timeout=15
             )
-            time.sleep(0.3)
         except Exception:
             pass
 
-        thread_local.session = s
-
-    return thread_local.session
+    return _thread_local.session
 
 
 # ============================================================
-# CACHE
-# ============================================================
-
-historical_cache = {
-    "date": None,
-    "data": None
-}
-
-equity_cache = {
-    "date": None,
-    "symbols": None
-}
-
-etf_cache = {
-    "date": None,
-    "symbols": None
-}
-
-cache_lock = threading.Lock()
-
-# ============================================================
-# BACKGROUND SCAN STATE
-# ============================================================
-
-scan_state = {
-    "job_id": None,
-    "status": "idle",
-    "progress": 0,
-    "message": "Ready",
-    "results": [],
-    "error": None,
-    "started": None,
-    "finished": None
-}
-
-scan_lock = threading.Lock()
-
-
-# ============================================================
-# BASIC HELPERS
+# HELPERS
 # ============================================================
 
 def clean_number(value):
@@ -141,199 +103,138 @@ def clean_number(value):
         if value is None:
             return None
 
-        if isinstance(value, float) and math.isnan(value):
+        if isinstance(value, (int, float)):
+            if math.isnan(value):
+                return None
+            return float(value)
+
+        text = str(value).strip()
+        if text == "" or text.lower() in ("nan", "none", "-"):
             return None
 
-        text = str(value).strip().replace(",", "")
-
-        if text == "":
-            return None
-
-        if text.lower() in ("nan", "none", "null", "-"):
-            return None
-
+        text = text.replace(",", "")
         return float(text)
 
     except Exception:
         return None
 
 
-def normalize_symbol(value):
+def format_number(value, decimals=2):
     if value is None:
-        return ""
+        return "-"
 
-    text = str(value).strip().upper()
-
-    if text == "NAN":
-        return ""
-
-    return text
+    try:
+        return f"{float(value):,.{decimals}f}"
+    except Exception:
+        return "-"
 
 
-def valid_number(value):
-    return (
-        value is not None
-        and math.isfinite(value)
-    )
+def format_cr(value):
+    if value is None:
+        return "-"
+
+    try:
+        return f"₹{float(value):,.2f} Cr"
+    except Exception:
+        return "-"
+
+
+def set_state(**kwargs):
+    with state_lock:
+        scan_state.update(kwargs)
 
 
 # ============================================================
-# OFFICIAL NSE EQUITY LIST
+# EQUITY / ETF LIST
 # ============================================================
 
 def get_equity_symbols():
+    global equity_symbols_cache
 
-    today = datetime.now().date()
-
-    with cache_lock:
-        if (
-            equity_cache["date"] == today
-            and equity_cache["symbols"] is not None
-        ):
-            return equity_cache["symbols"]
+    if equity_symbols_cache is not None:
+        return equity_symbols_cache
 
     session = get_nse_session()
-    last_error = None
 
-    for url in NSE_EQUITY_LIST_URLS:
+    response = session.get(
+        EQUITY_LIST_URL,
+        timeout=30
+    )
+    response.raise_for_status()
 
-        try:
-            response = session.get(
-                url,
-                timeout=REQUEST_TIMEOUT
-            )
+    df = pd.read_csv(io.BytesIO(response.content))
 
-            response.raise_for_status()
+    # NSE EQUITY_L.csv normally contains SYMBOL and SERIES.
+    df.columns = [str(c).strip().upper() for c in df.columns]
 
-            df = pd.read_csv(
-                io.BytesIO(response.content),
-                dtype=str
-            )
+    if "SYMBOL" not in df.columns:
+        raise RuntimeError("NSE Equity list में SYMBOL column नहीं मिला।")
 
-            df.columns = [
-                str(c).strip().upper()
-                for c in df.columns
-            ]
+    if "SERIES" in df.columns:
+        df["SERIES"] = df["SERIES"].astype(str).str.strip().str.upper()
+        df = df[df["SERIES"] == "EQ"]
 
-            symbol_column = None
-
-            for name in [
-                "SYMBOL",
-                "SYMBOLS",
-                "TCKRSYMB"
-            ]:
-                if name in df.columns:
-                    symbol_column = name
-                    break
-
-            if symbol_column is None:
-                raise RuntimeError(
-                    "NSE equity list में SYMBOL column नहीं मिला."
-                )
-
-            symbols = set()
-
-            for value in df[symbol_column]:
-
-                symbol = normalize_symbol(value)
-
-                if symbol:
-                    symbols.add(symbol)
-
-            if not symbols:
-                raise RuntimeError(
-                    "NSE equity list खाली मिली."
-                )
-
-            result = sorted(symbols)
-
-            with cache_lock:
-                equity_cache["date"] = today
-                equity_cache["symbols"] = result
-
-            return result
-
-        except Exception as exc:
-            last_error = exc
-
-    raise RuntimeError(
-        "NSE Equity list नहीं मिली: "
-        + str(last_error)
+    symbols = (
+        df["SYMBOL"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .dropna()
+        .unique()
+        .tolist()
     )
 
+    equity_symbols_cache = set(symbols)
 
-# ============================================================
-# OFFICIAL ETF LIST
-# ============================================================
+    return equity_symbols_cache
+
 
 def get_etf_symbols():
+    global etf_symbols_cache
 
-    today = datetime.now().date()
-
-    with cache_lock:
-        if (
-            etf_cache["date"] == today
-            and etf_cache["symbols"] is not None
-        ):
-            return etf_cache["symbols"]
+    if etf_symbols_cache is not None:
+        return etf_symbols_cache
 
     session = get_nse_session()
 
-    for url in NSE_ETF_LIST_URLS:
+    try:
+        response = session.get(
+            ETF_LIST_URL,
+            timeout=30
+        )
+        response.raise_for_status()
 
-        try:
-            response = session.get(
-                url,
-                timeout=REQUEST_TIMEOUT
-            )
+        df = pd.read_csv(io.BytesIO(response.content))
+        df.columns = [str(c).strip().upper() for c in df.columns]
 
-            response.raise_for_status()
+        symbol_column = None
 
-            df = pd.read_csv(
-                io.BytesIO(response.content),
-                dtype=str
-            )
+        for col in ["SYMBOL", "SYMBOL_NAME"]:
+            if col in df.columns:
+                symbol_column = col
+                break
 
-            df.columns = [
-                str(c).strip().upper()
-                for c in df.columns
-            ]
+        if symbol_column is None:
+            etf_symbols_cache = set()
+            return etf_symbols_cache
 
-            symbol_column = None
+        symbols = (
+            df[symbol_column]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .dropna()
+            .unique()
+            .tolist()
+        )
 
-            for name in [
-                "SYMBOL",
-                "SYMBOLS",
-                "TCKRSYMB"
-            ]:
-                if name in df.columns:
-                    symbol_column = name
-                    break
+        etf_symbols_cache = set(symbols)
 
-            if symbol_column is None:
-                symbol_column = df.columns[0]
+    except Exception:
+        # ETF exclusion is additionally protected by EQ-series filter.
+        etf_symbols_cache = set()
 
-            symbols = set()
-
-            for value in df[symbol_column]:
-
-                symbol = normalize_symbol(value)
-
-                if symbol:
-                    symbols.add(symbol)
-
-            with cache_lock:
-                etf_cache["date"] = today
-                etf_cache["symbols"] = symbols
-
-            return symbols
-
-        except Exception:
-            continue
-
-    # Fallback ETF name patterns.
-    # Official list is preferred whenever available.
-    return set()
+    return etf_symbols_cache
 
 
 # ============================================================
@@ -341,21 +242,17 @@ def get_etf_symbols():
 # ============================================================
 
 def get_bhavcopy(date_obj):
-
-    date_string = date_obj.strftime("%d%m%Y")
+    date_text = date_obj.strftime("%d%m%Y")
 
     session = get_nse_session()
 
-    for template in NSE_BHAVCOPY_URLS:
-
-        url = template.format(
-            date=date_string
-        )
+    for template in BHAVCOPY_URLS:
+        url = template.format(date=date_text)
 
         try:
             response = session.get(
                 url,
-                timeout=REQUEST_TIMEOUT
+                timeout=30
             )
 
             if response.status_code != 200:
@@ -364,13 +261,13 @@ def get_bhavcopy(date_obj):
             if not response.content:
                 continue
 
-            df = pd.read_csv(
-                io.BytesIO(response.content),
-                dtype=str
-            )
+            # Sometimes NSE may return HTML instead of CSV.
+            sample = response.content[:100].lower()
 
-            if df.empty:
+            if b"<html" in sample or b"<!doctype" in sample:
                 continue
+
+            df = pd.read_csv(io.BytesIO(response.content))
 
             df.columns = [
                 str(c).strip().upper()
@@ -380,12 +277,33 @@ def get_bhavcopy(date_obj):
             required = {
                 "SYMBOL",
                 "SERIES",
+                "OPEN_PRICE",
+                "HIGH_PRICE",
+                "LOW_PRICE",
+                "CLOSE_PRICE",
                 "TURNOVER_LACS"
             }
 
-            if not required.issubset(
-                set(df.columns)
-            ):
+            if not required.issubset(set(df.columns)):
+                continue
+
+            df["SYMBOL"] = (
+                df["SYMBOL"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+
+            df["SERIES"] = (
+                df["SERIES"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+
+            df = df[df["SERIES"] == "EQ"].copy()
+
+            if df.empty:
                 continue
 
             return df
@@ -397,256 +315,148 @@ def get_bhavcopy(date_obj):
 
 
 # ============================================================
-# HISTORICAL 20-DAY LIQUIDITY
+# HISTORICAL LIQUIDITY
 # ============================================================
 
 def get_historical_liquidity():
+    """
+    Previous 20 valid NSE EQ trading days.
+    Average real turnover = sum TURNOVER_LACS / 100 / 20.
+    """
+
+    global historical_cache
+
+    if historical_cache:
+        return historical_cache
+
+    valid_days = []
 
     today = datetime.now().date()
 
-    with cache_lock:
-        if (
-            historical_cache["date"] == today
-            and historical_cache["data"] is not None
-        ):
-            return historical_cache["data"]
+    # Start from yesterday because today's bhavcopy is not required.
+    current = today - timedelta(days=1)
 
-    all_days = {}
+    attempts = 0
 
-    current_date = today - timedelta(days=1)
+    set_state(
+        message="Previous 20 valid trading days का turnover तैयार किया जा रहा है...",
+        progress=2
+    )
 
-    checked = 0
+    while len(valid_days) < HISTORICAL_DAYS_REQUIRED and attempts < 60:
+        df = get_bhavcopy(current)
 
-    while (
-        checked < HISTORICAL_LOOKBACK_DAYS
-        and len(all_days) < HISTORICAL_DAYS_REQUIRED
-    ):
+        if df is not None and not df.empty:
+            valid_days.append((current, df))
 
-        if current_date.weekday() < 5:
-
-            df = get_bhavcopy(current_date)
-
-            if df is not None:
-
-                df["SERIES"] = (
-                    df["SERIES"]
-                    .astype(str)
-                    .str.strip()
-                    .str.upper()
+            set_state(
+                message=(
+                    f"Historical liquidity: "
+                    f"{len(valid_days)}/{HISTORICAL_DAYS_REQUIRED} "
+                    f"valid trading days मिले।"
+                ),
+                progress=min(
+                    30,
+                    2 + int(
+                        len(valid_days)
+                        / HISTORICAL_DAYS_REQUIRED
+                        * 28
+                    )
                 )
-
-                # Only EQ.
-                eq = df[
-                    df["SERIES"] == "EQ"
-                ].copy()
-
-                if not eq.empty:
-
-                    eq["SYMBOL"] = (
-                        eq["SYMBOL"]
-                        .astype(str)
-                        .str.strip()
-                        .str.upper()
-                    )
-
-                    eq["TURNOVER_LACS"] = pd.to_numeric(
-                        eq["TURNOVER_LACS"],
-                        errors="coerce"
-                    )
-
-                    eq = eq.dropna(
-                        subset=["TURNOVER_LACS"]
-                    )
-
-                    day_map = {}
-
-                    for _, row in eq.iterrows():
-
-                        symbol = normalize_symbol(
-                            row["SYMBOL"]
-                        )
-
-                        turnover_lacs = clean_number(
-                            row["TURNOVER_LACS"]
-                        )
-
-                        if (
-                            symbol
-                            and valid_number(
-                                turnover_lacs
-                            )
-                        ):
-                            # lakh -> crore
-                            turnover_cr = (
-                                turnover_lacs / 100.0
-                            )
-
-                            day_map[symbol] = (
-                                turnover_cr
-                            )
-
-                    if day_map:
-                        all_days[current_date] = day_map
-
-        current_date -= timedelta(days=1)
-        checked += 1
-
-    if len(all_days) < HISTORICAL_DAYS_REQUIRED:
-        raise RuntimeError(
-            "20 valid NSE trading days की "
-            "bhavcopy पूरी नहीं मिली."
-        )
-
-    valid_dates = sorted(
-        all_days.keys(),
-        reverse=True
-    )[:HISTORICAL_DAYS_REQUIRED]
-
-    symbols = set()
-
-    for dt in valid_dates:
-        symbols.update(
-            all_days[dt].keys()
-        )
-
-    liquidity = {}
-
-    for symbol in symbols:
-
-        values = []
-
-        for dt in valid_dates:
-
-            value = all_days[dt].get(
-                symbol
             )
 
-            if valid_number(value):
-                values.append(value)
+        current -= timedelta(days=1)
+        attempts += 1
+
+    if len(valid_days) < HISTORICAL_DAYS_REQUIRED:
+        raise RuntimeError(
+            "NSE से previous 20 valid trading days का bhavcopy data पूरा नहीं मिला।"
+        )
+
+    totals = {}
+
+    for date_obj, df in valid_days:
+        for _, row in df.iterrows():
+
+            symbol = str(row["SYMBOL"]).strip().upper()
+
+            turnover_lacs = clean_number(
+                row["TURNOVER_LACS"]
+            )
+
+            if turnover_lacs is None:
+                continue
+
+            # NSE bhavcopy TURNOVER_LACS -> ₹ Crore
+            turnover_cr = turnover_lacs / 100.0
+
+            if symbol not in totals:
+                totals[symbol] = []
+
+            totals[symbol].append(turnover_cr)
+
+    averages = {}
+
+    for symbol, values in totals.items():
 
         if len(values) == HISTORICAL_DAYS_REQUIRED:
+            averages[symbol] = sum(values) / len(values)
 
-            average = (
-                sum(values)
-                / HISTORICAL_DAYS_REQUIRED
-            )
+    historical_cache = averages
 
-            liquidity[symbol] = {
-                "avg_turnover_cr": average
-            }
-
-    if not liquidity:
-        raise RuntimeError(
-            "Historical liquidity data नहीं मिला."
-        )
-
-    with cache_lock:
-        historical_cache["date"] = today
-        historical_cache["data"] = liquidity
-
-    return liquidity
+    return historical_cache
 
 
 # ============================================================
-# NSE LIVE QUOTE
+# LIVE QUOTE
 # ============================================================
 
 def get_live_quote(symbol):
 
     session = get_nse_session()
 
-    try:
+    url = QUOTE_URL.format(symbol=symbol)
 
-        response = session.get(
-            NSE_QUOTE_URL,
-            params={
-                "symbol": symbol
-            },
-            timeout=REQUEST_TIMEOUT
-        )
+    response = session.get(
+        url,
+        timeout=15
+    )
 
-        if response.status_code != 200:
-            return None
-
-        text = response.text.strip()
-
-        if not text:
-            return None
-
-        if text.lower().startswith("<!doctype"):
-            return None
-
-        if text.lower().startswith("<html"):
-            return None
-
-        data = response.json()
-
-        price_info = data.get(
-            "priceInfo",
-            {}
-        )
-
-        metadata = data.get(
-            "metadata",
-            {}
-        )
-
-        security_info = data.get(
-            "securityInfo",
-            {}
-        )
-
-        open_price = clean_number(
-            price_info.get("open")
-        )
-
-        ltp = clean_number(
-            price_info.get("lastPrice")
-        )
-
-        intraday = price_info.get(
-            "intraDayHighLow",
-            {}
-        )
-
-        low_price = clean_number(
-            intraday.get("min")
-        )
-
-        if low_price is None:
-            low_price = clean_number(
-                price_info.get("low")
-            )
-
-        series = (
-            metadata.get("series")
-            or security_info.get("series")
-            or ""
-        )
-
-        series = str(
-            series
-        ).strip().upper()
-
-        if (
-            not valid_number(open_price)
-            or not valid_number(low_price)
-            or not valid_number(ltp)
-        ):
-            return None
-
-        if open_price <= 0:
-            return None
-
-        return {
-            "open": open_price,
-            "low": low_price,
-            "ltp": ltp,
-            "series": series
-        }
-
-    except Exception:
+    if response.status_code != 200:
         return None
+
+    data = response.json()
+
+    price_info = data.get("priceInfo", {})
+    metadata = data.get("metadata", {})
+
+    open_price = clean_number(
+        price_info.get("open")
+    )
+
+    last_price = clean_number(
+        price_info.get("lastPrice")
+    )
+
+    intra_day = price_info.get(
+        "intraDayHighLow",
+        {}
+    )
+
+    low_price = clean_number(
+        intra_day.get("min")
+    )
+
+    series = str(
+        metadata.get("series", "")
+    ).strip().upper()
+
+    return {
+        "open": open_price,
+        "low": low_price,
+        "ltp": last_price,
+        "series": series
+    }
 
 
 # ============================================================
@@ -657,210 +467,235 @@ def get_live_turnover(symbol):
 
     session = get_nse_session()
 
+    url = TRADE_INFO_URL.format(symbol=symbol)
+
+    response = session.get(
+        url,
+        timeout=15
+    )
+
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+
+    order_book = data.get(
+        "marketDeptOrderBook",
+        {}
+    )
+
+    trade_info = order_book.get(
+        "tradeInfo",
+        {}
+    )
+
+    total_traded_value = clean_number(
+        trade_info.get("totalTradedValue")
+    )
+
+    if total_traded_value is None:
+        return None
+
+    # NSE endpoint examples provide totalTradedValue in ₹ lakh.
+    # ₹ lakh / 100 = ₹ crore.
+    return total_traded_value / 100.0
+
+
+# ============================================================
+# PROCESS ONE SYMBOL
+# ============================================================
+
+def process_symbol(
+    symbol,
+    historical,
+    etf_symbols
+):
+
     try:
 
-        response = session.get(
-            NSE_QUOTE_URL,
-            params={
-                "symbol": symbol,
-                "section": "trade_info"
-            },
-            timeout=REQUEST_TIMEOUT
-        )
+        # ----------------------------------------------------
+        # Historical liquidity filter
+        # ----------------------------------------------------
 
-        if response.status_code != 200:
+        avg_turnover = historical.get(symbol)
+
+        if avg_turnover is None:
             return None
 
-        text = response.text.strip()
-
-        if not text:
+        if avg_turnover < MIN_AVG_TURNOVER_CR:
             return None
 
-        if text.lower().startswith("<!doctype"):
+        # ----------------------------------------------------
+        # ETF exclusion
+        # ----------------------------------------------------
+
+        if symbol in etf_symbols:
             return None
 
-        if text.lower().startswith("<html"):
+        # ----------------------------------------------------
+        # Live quote
+        # ----------------------------------------------------
+
+        quote = get_live_quote(symbol)
+
+        if not quote:
             return None
 
-        data = response.json()
-
-        book = data.get(
-            "marketDeptOrderBook",
-            {}
-        )
-
-        trade_info = book.get(
-            "tradeInfo",
-            {}
-        )
-
-        value_lacs = clean_number(
-            trade_info.get(
-                "totalTradedValue"
-            )
-        )
-
-        if not valid_number(value_lacs):
+        # Only NSE EQ.
+        if quote.get("series") != "EQ":
             return None
 
-        # NSE trade-info value is in lakh units.
-        # lakh -> crore
-        return value_lacs / 100.0
+        open_price = quote.get("open")
+        low_price = quote.get("low")
+        ltp = quote.get("ltp")
+
+        if (
+            open_price is None
+            or low_price is None
+            or ltp is None
+            or open_price <= 0
+        ):
+            return None
+
+        # ----------------------------------------------------
+        # Open-Low Gap
+        # ----------------------------------------------------
+
+        gap_percent = (
+            (open_price - low_price)
+            / open_price
+        ) * 100.0
+
+        # We only want 0% to 0.50%.
+        if gap_percent < 0:
+            return None
+
+        if gap_percent > MAX_OPEN_LOW_GAP:
+            return None
+
+        # ----------------------------------------------------
+        # Current LTP must be above today's open
+        # ----------------------------------------------------
+
+        if ltp <= open_price:
+            return None
+
+        # ----------------------------------------------------
+        # Current live turnover
+        # ----------------------------------------------------
+
+        live_turnover = get_live_turnover(symbol)
+
+        if live_turnover is None:
+            live_turnover = 0.0
+
+        return {
+            "symbol": symbol,
+            "open": open_price,
+            "low": low_price,
+            "ltp": ltp,
+            "gap": gap_percent,
+            "avg_turnover": avg_turnover,
+            "live_turnover": live_turnover
+        }
 
     except Exception:
         return None
 
 
 # ============================================================
-# PROCESS ONE STOCK
+# COMPLETE SCAN
 # ============================================================
 
-def process_symbol(
-    symbol,
-    liquidity,
-    etf_symbols
-):
-
-    historical = liquidity.get(
-        symbol
-    )
-
-    if historical is None:
-        return None
-
-    average = historical[
-        "avg_turnover_cr"
-    ]
-
-    if average < MIN_AVG_TURNOVER_CR:
-        return None
-
-    # Official ETF exclusion
-    if symbol in etf_symbols:
-        return None
-
-    quote = get_live_quote(
-        symbol
-    )
-
-    if quote is None:
-        return None
-
-    # EQ only.
-    # If NSE gives a non-empty series,
-    # it must be EQ.
-    if (
-        quote["series"]
-        and quote["series"] != "EQ"
-    ):
-        return None
-
-    open_price = quote["open"]
-    low_price = quote["low"]
-    ltp = quote["ltp"]
-
-    gap = (
-        (open_price - low_price)
-        / open_price
-    ) * 100.0
-
-    if gap < 0:
-        return None
-
-    if gap > MAX_OPEN_LOW_GAP:
-        return None
-
-    # Current price must be above today's open.
-    if ltp <= open_price:
-        return None
-
-    # Only qualifying price candidates
-    # request today's live turnover.
-    live_turnover = get_live_turnover(
-        symbol
-    )
-
-    if live_turnover is None:
-        return None
-
-    return {
-        "symbol": symbol,
-        "open": open_price,
-        "low": low_price,
-        "ltp": ltp,
-        "gap": gap,
-        "avg_turnover": average,
-        "live_turnover": live_turnover
-    }
-
-
-# ============================================================
-# BACKGROUND SCAN
-# ============================================================
-
-def perform_scan(job_id):
+def run_scan():
 
     try:
 
-        with scan_lock:
-            scan_state["status"] = "scanning"
-            scan_state["progress"] = 2
-            scan_state["message"] = (
-                "20-day liquidity data तैयार हो रहा है..."
-            )
+        set_state(
+            status="scanning",
+            message="NSE data तैयार किया जा रहा है...",
+            progress=1,
+            done=0,
+            total=0,
+            results=[],
+            error="",
+            started=datetime.now().strftime(
+                "%d-%m-%Y %H:%M:%S"
+            ),
+            finished=""
+        )
 
-        liquidity = get_historical_liquidity()
-
-        with scan_lock:
-            scan_state["progress"] = 20
-            scan_state["message"] = (
-                "NSE Equity universe तैयार हो रहा है..."
-            )
+        # ----------------------------------------------------
+        # Equity list
+        # ----------------------------------------------------
 
         equity_symbols = get_equity_symbols()
 
-        with scan_lock:
-            scan_state["progress"] = 25
-            scan_state["message"] = (
-                "ETF list check हो रही है..."
-            )
+        set_state(
+            message=(
+                f"NSE EQ list तैयार है: "
+                f"{len(equity_symbols)} symbols।"
+            ),
+            progress=5
+        )
+
+        # ----------------------------------------------------
+        # ETF list
+        # ----------------------------------------------------
 
         etf_symbols = get_etf_symbols()
 
-        candidates = []
+        # ----------------------------------------------------
+        # Historical liquidity
+        # ----------------------------------------------------
 
-        for symbol in equity_symbols:
+        historical = get_historical_liquidity()
 
-            if symbol not in liquidity:
-                continue
+        # ----------------------------------------------------
+        # Only liquid symbols need live API calls.
+        # ----------------------------------------------------
 
-            if symbol in etf_symbols:
-                continue
-
-            if (
-                liquidity[symbol][
-                    "avg_turnover_cr"
-                ] >= MIN_AVG_TURNOVER_CR
-            ):
-                candidates.append(symbol)
-
-        if not candidates:
-            raise RuntimeError(
-                "₹10 करोड़ average turnover वाले "
-                "EQ shares नहीं मिले."
-            )
+        candidates = [
+            symbol
+            for symbol in equity_symbols
+            if symbol in historical
+            and historical[symbol] >= MIN_AVG_TURNOVER_CR
+            and symbol not in etf_symbols
+        ]
 
         total = len(candidates)
 
+        set_state(
+            total=total,
+            done=0,
+            progress=32,
+            message=(
+                f"{total} liquid NSE EQ shares मिलीं। "
+                f"अब today's Open, Low, LTP और live turnover check हो रहा है..."
+            )
+        )
+
         results = []
 
-        with scan_lock:
-            scan_state["progress"] = 30
-            scan_state["message"] = (
-                "NSE live Open / Low / LTP scan शुरू..."
+        if total == 0:
+            set_state(
+                status="done",
+                message="कोई liquid NSE EQ candidate नहीं मिला।",
+                progress=100,
+                done=0,
+                total=0,
+                results=[],
+                finished=datetime.now().strftime(
+                    "%d-%m-%Y %H:%M:%S"
+                )
             )
+            return
 
-        completed = 0
+        # ----------------------------------------------------
+        # Live scan
+        # ----------------------------------------------------
+
+        done = 0
 
         with ThreadPoolExecutor(
             max_workers=MAX_WORKERS
@@ -870,18 +705,15 @@ def perform_scan(job_id):
                 executor.submit(
                     process_symbol,
                     symbol,
-                    liquidity,
+                    historical,
                     etf_symbols
                 ): symbol
                 for symbol in candidates
             }
 
-            for future in as_completed(
-                futures
-            ):
+            for future in as_completed(futures):
 
                 try:
-
                     result = future.result()
 
                     if result is not None:
@@ -890,27 +722,27 @@ def perform_scan(job_id):
                 except Exception:
                     pass
 
-                completed += 1
+                done += 1
 
-                progress = (
-                    30
-                    + int(
-                        completed
-                        / total
-                        * 65
+                progress = 32 + int(
+                    (done / total) * 65
+                )
+
+                set_state(
+                    done=done,
+                    total=total,
+                    progress=min(progress, 97),
+                    message=(
+                        f"Live scan चल रहा है... "
+                        f"{done}/{total} shares check हो चुकी हैं। "
+                        f"Valid results: {len(results)}"
                     )
                 )
 
-                with scan_lock:
-                    scan_state["progress"] = (
-                        min(progress, 95)
-                    )
-                    scan_state["message"] = (
-                        f"NSE live scan: "
-                        f"{completed}/{total}"
-                    )
+        # ----------------------------------------------------
+        # Smallest Open-Low Gap first
+        # ----------------------------------------------------
 
-        # Smallest Open-Low gap first.
         results.sort(
             key=lambda x: (
                 x["gap"],
@@ -918,122 +750,90 @@ def perform_scan(job_id):
             )
         )
 
-        with scan_lock:
-
-            scan_state["status"] = "completed"
-            scan_state["progress"] = 100
-            scan_state["message"] = (
-                f"Scan complete. "
-                f"{len(results)} shares मिले."
-            )
-            scan_state["results"] = results
-            scan_state["finished"] = (
-                datetime.now().strftime(
-                    "%d-%m-%Y %H:%M:%S"
-                )
-            )
-
-    except Exception as exc:
-
-        with scan_lock:
-
-            scan_state["status"] = "error"
-            scan_state["progress"] = 100
-            scan_state["message"] = "Scan failed."
-            scan_state["error"] = str(exc)
-            scan_state["results"] = []
-            scan_state["finished"] = (
-                datetime.now().strftime(
-                    "%d-%m-%Y %H:%M:%S"
-                )
-            )
-
-
-# ============================================================
-# START SCAN API
-# ============================================================
-
-@app.route("/api/start")
-def start_scan():
-
-    with scan_lock:
-
-        if scan_state["status"] == "scanning":
-            return jsonify({
-                "ok": True,
-                "status": "scanning",
-                "job_id": scan_state["job_id"]
-            })
-
-        job_id = str(
-            uuid.uuid4()
-        )
-
-        scan_state["job_id"] = job_id
-        scan_state["status"] = "scanning"
-        scan_state["progress"] = 0
-        scan_state["message"] = (
-            "Scan शुरू हो रहा है..."
-        )
-        scan_state["results"] = []
-        scan_state["error"] = None
-        scan_state["started"] = (
-            datetime.now().strftime(
+        set_state(
+            status="done",
+            message=(
+                f"Scan पूरा हो गया। "
+                f"{len(results)} shares मिलीं।"
+            ),
+            progress=100,
+            done=total,
+            total=total,
+            results=results,
+            finished=datetime.now().strftime(
                 "%d-%m-%Y %H:%M:%S"
             )
         )
-        scan_state["finished"] = None
 
-    worker = threading.Thread(
-        target=perform_scan,
-        args=(job_id,),
+    except Exception as e:
+
+        set_state(
+            status="error",
+            message="Scanner में error आया।",
+            progress=100,
+            error=str(e),
+            finished=datetime.now().strftime(
+                "%d-%m-%Y %H:%M:%S"
+            )
+        )
+
+
+# ============================================================
+# START SCAN
+# ============================================================
+
+def start_scan():
+
+    with state_lock:
+
+        if scan_state["status"] == "scanning":
+            return
+
+        scan_state["status"] = "scanning"
+        scan_state["message"] = (
+            "Scan शुरू हो गया है। कृपया कुछ समय प्रतीक्षा करें..."
+        )
+        scan_state["progress"] = 1
+        scan_state["done"] = 0
+        scan_state["total"] = 0
+        scan_state["results"] = []
+        scan_state["error"] = ""
+        scan_state["started"] = datetime.now().strftime(
+            "%d-%m-%Y %H:%M:%S"
+        )
+        scan_state["finished"] = ""
+
+    # Background thread.
+    thread = threading.Thread(
+        target=run_scan,
         daemon=True
     )
 
-    worker.start()
-
-    return jsonify({
-        "ok": True,
-        "status": "scanning",
-        "job_id": job_id
-    })
+    thread.start()
 
 
 # ============================================================
-# STATUS API
+# HTML PAGE
 # ============================================================
 
-@app.route("/api/status")
-def status():
-
-    with scan_lock:
-
-        return jsonify({
-            "job_id": scan_state["job_id"],
-            "status": scan_state["status"],
-            "progress": scan_state["progress"],
-            "message": scan_state["message"],
-            "results": scan_state["results"],
-            "error": scan_state["error"],
-            "started": scan_state["started"],
-            "finished": scan_state["finished"]
-        })
-
-
-# ============================================================
-# HOME PAGE
-# ============================================================
-
-HTML = """
+PAGE = """
 <!DOCTYPE html>
-<html lang="hi">
-
+<html>
 <head>
 
 <meta charset="UTF-8">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+{% if scanning %}
+<meta
+    http-equiv="refresh"
+    content="5"
+>
+{% endif %}
 
 <title>Open-Low Liquidity Scanner</title>
 
@@ -1041,86 +841,94 @@ content="width=device-width, initial-scale=1.0">
 
 body {
     font-family: Arial, sans-serif;
+    background: #f5f7fb;
     margin: 0;
-    padding: 15px;
-    background: #f5f5f5;
+    padding: 16px;
+    color: #111827;
 }
 
 .container {
     max-width: 1100px;
     margin: auto;
+}
+
+.card {
     background: white;
-    padding: 15px;
-    border-radius: 10px;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
 }
 
 h1 {
-    font-size: 23px;
+    font-size: 24px;
     margin-top: 0;
 }
 
 .conditions {
-    background: #f0f7ff;
-    padding: 12px;
-    border-radius: 8px;
-    line-height: 1.7;
-    margin-bottom: 15px;
+    line-height: 1.8;
+    font-size: 15px;
 }
 
-button {
+.scan-button {
+    display: block;
     width: 100%;
-    padding: 13px;
-    font-size: 17px;
-    border: none;
-    border-radius: 7px;
-    background: #1976d2;
+    box-sizing: border-box;
+    text-align: center;
+    text-decoration: none;
+    background: #1769e0;
     color: white;
-    cursor: pointer;
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 18px;
 }
 
-button:disabled {
-    background: #777;
+.scan-button:active {
+    background: #0f56bd;
 }
 
 .status {
-    margin-top: 15px;
-    padding: 12px;
-    background: #eeeeee;
-    border-radius: 8px;
-}
-
-.error {
-    margin-top: 15px;
-    padding: 12px;
-    background: #ffe5e5;
-    color: #b00020;
-    border-radius: 8px;
-}
-
-.success {
-    margin-top: 15px;
-    padding: 12px;
-    background: #e8f5e9;
-    color: #1b5e20;
-    border-radius: 8px;
-}
-
-.progress-box {
-    margin-top: 10px;
-    background: #ddd;
+    margin-top: 16px;
+    padding: 14px;
     border-radius: 10px;
+    background: #eef2f7;
+    font-size: 15px;
+}
+
+.progress-bg {
+    width: 100%;
+    height: 16px;
+    background: #e5e7eb;
+    border-radius: 20px;
     overflow: hidden;
+    margin-top: 12px;
 }
 
 .progress {
-    height: 14px;
-    width: 0%;
-    background: #1976d2;
+    height: 100%;
+    background: #1769e0;
+    width: {{ progress }}%;
+}
+
+.small {
+    color: #6b7280;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.error {
+    color: #b91c1c;
+    background: #fee2e2;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 12px;
 }
 
 .table-wrap {
     overflow-x: auto;
-    margin-top: 15px;
+    margin-top: 12px;
 }
 
 table {
@@ -1129,27 +937,28 @@ table {
     min-width: 850px;
 }
 
-th,
-td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    white-space: nowrap;
-    text-align: right;
-}
-
 th {
-    background: #eeeeee;
-    text-align: center;
-}
-
-td:first-child,
-td:nth-child(2) {
+    background: #111827;
+    color: white;
+    padding: 10px;
     text-align: left;
+    font-size: 13px;
 }
 
-.small {
-    color: #666;
+td {
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
     font-size: 13px;
+}
+
+tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.no-results {
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
 }
 
 </style>
@@ -1160,315 +969,229 @@ td:nth-child(2) {
 
 <div class="container">
 
+<div class="card">
+
 <h1>Open-Low Liquidity Scanner</h1>
 
 <div class="conditions">
 
-<b>Scanner Conditions</b><br>
+<b>Scanner Conditions:</b><br>
 
 1. Open-Low Gap ≤ 0.50%<br>
+
 2. Current LTP &gt; Today's Open<br>
+
 3. Previous 20 Valid Trading Days Average Real Turnover ≥ ₹10 Crore<br>
+
 4. NSE EQ only<br>
+
 5. ETF / BE / BZ / SME excluded<br>
+
 6. Today's Current / Live Turnover<br>
+
 7. Smallest Open-Low Gap first
 
 </div>
 
-<button id="scanButton"
-onclick="startScan()">
-
+<a
+    class="scan-button"
+    href="/scan"
+>
+{% if scanning %}
+Scan चल रहा है...
+{% else %}
 Scan Now
+{% endif %}
+</a>
 
-</button>
+<div class="status">
 
-<div id="statusBox"
-class="status">
+<b>Status:</b>
+{{ message }}
 
-Scanner तैयार है।
-<br>
-<strong>Scan Now</strong> दबाकर scan शुरू करें।
+<div class="progress-bg">
+<div
+    class="progress"
+    style="width: {{ progress }}%;"
+></div>
+</div>
+
+<div class="small">
+Progress: {{ progress }}%
+{% if total > 0 %}
+&nbsp; | &nbsp;
+{{ done }}/{{ total }} shares checked
+{% endif %}
+</div>
+
+{% if started %}
+<div class="small">
+Started: {{ started }}
+</div>
+{% endif %}
+
+{% if finished %}
+<div class="small">
+Finished: {{ finished }}
+</div>
+{% endif %}
 
 </div>
 
-<div class="progress-box">
+{% if error %}
 
-<div id="progress"
-class="progress">
+<div class="error">
+<b>Scanner Error:</b><br>
+{{ error }}
 </div>
 
-</div>
-
-<div id="resultArea"></div>
+{% endif %}
 
 </div>
 
-<script>
 
-let timer = null;
+{% if status == "done" %}
 
-function startScan() {
+<div class="card">
 
-    const button =
-        document.getElementById("scanButton");
+<h2>
+Results: {{ results|length }}
+</h2>
 
-    const status =
-        document.getElementById("statusBox");
+{% if results %}
 
-    const resultArea =
-        document.getElementById("resultArea");
+<div class="table-wrap">
 
-    const progress =
-        document.getElementById("progress");
+<table>
 
-    button.disabled = true;
+<thead>
 
-    button.innerText =
-        "Scanning...";
+<tr>
+<th>#</th>
+<th>Share</th>
+<th>Open</th>
+<th>Low</th>
+<th>LTP</th>
+<th>Open-Low Gap</th>
+<th>20D Avg Turnover</th>
+<th>Today's Live Turnover</th>
+</tr>
 
-    resultArea.innerHTML = "";
+</thead>
 
-    progress.style.width = "0%";
+<tbody>
 
-    status.innerHTML =
-        "Scan शुरू हो रहा है...";
+{% for row in results %}
 
-    fetch("/api/start")
+<tr>
 
-    .then(response => response.json())
+<td>{{ loop.index }}</td>
 
-    .then(data => {
+<td><b>{{ row.symbol }}</b></td>
 
-        if (!data.ok) {
-            throw new Error(
-                "Scan शुरू नहीं हो पाया."
-            );
-        }
+<td>{{ "%.2f"|format(row.open) }}</td>
 
-        checkStatus();
+<td>{{ "%.2f"|format(row.low) }}</td>
 
-    })
+<td>{{ "%.2f"|format(row.ltp) }}</td>
 
-    .catch(error => {
+<td>
+<b>{{ "%.2f"|format(row.gap) }}%</b>
+</td>
 
-        button.disabled = false;
+<td>
+₹{{ "%.2f"|format(row.avg_turnover) }} Cr
+</td>
 
-        button.innerText =
-            "Scan Now";
+<td>
+₹{{ "%.2f"|format(row.live_turnover) }} Cr
+</td>
 
-        status.innerHTML =
-            "Error: " + error.message;
+</tr>
 
-    });
+{% endfor %}
 
-}
+</tbody>
 
+</table>
 
-function checkStatus() {
+</div>
 
-    fetch("/api/status")
+{% else %}
 
-    .then(response => response.json())
+<div class="no-results">
+इस समय कोई share सभी conditions को पूरा नहीं कर रहा है।
+</div>
 
-    .then(data => {
+{% endif %}
 
-        const status =
-            document.getElementById("statusBox");
+</div>
 
-        const progress =
-            document.getElementById("progress");
+{% endif %}
 
-        const button =
-            document.getElementById("scanButton");
 
-        progress.style.width =
-            data.progress + "%";
+{% if scanning %}
 
-        status.innerHTML =
-            "<b>" + data.message + "</b>"
-            + "<br>Progress: "
-            + data.progress + "%";
+<div class="card">
 
-        if (data.status === "scanning") {
+<b>Scanner अभी चल रहा है।</b><br>
 
-            timer = setTimeout(
-                checkStatus,
-                2000
-            );
+यह page लगभग हर 5 सेकंड में अपने-आप refresh होगा।
 
-            return;
-        }
+<br><br>
 
-        if (data.status === "completed") {
+Historical 20-day liquidity और आज का live NSE data दोनों check हो रहे हैं।
 
-            button.disabled = false;
+</div>
 
-            button.innerText =
-                "Scan Now";
+{% endif %}
 
-            showResults(
-                data.results
-            );
-
-            return;
-        }
-
-        if (data.status === "error") {
-
-            button.disabled = false;
-
-            button.innerText =
-                "Scan Now";
-
-            status.className =
-                "status error";
-
-            status.innerHTML =
-                "<b>Scanner Error</b><br><br>"
-                + data.error;
-
-            return;
-        }
-
-    })
-
-    .catch(error => {
-
-        timer = setTimeout(
-            checkStatus,
-            3000
-        );
-
-    });
-
-}
-
-
-function showResults(results) {
-
-    const area =
-        document.getElementById(
-            "resultArea"
-        );
-
-    if (!results || results.length === 0) {
-
-        area.innerHTML =
-            '<div class="success">'
-            + '<b>Scan completed.</b><br><br>'
-            + 'कोई share सभी conditions को पूरा नहीं कर रहा है।'
-            + '</div>';
-
-        return;
-    }
-
-    let html = "";
-
-    html +=
-        '<div class="success">'
-        + '<b>Scan completed.</b><br>'
-        + 'Qualifying shares: '
-        + results.length
-        + '</div>';
-
-    html +=
-        '<div class="table-wrap">';
-
-    html += '<table>';
-
-    html += '<thead><tr>';
-
-    html += '<th>#</th>';
-    html += '<th>Symbol</th>';
-    html += '<th>Open ₹</th>';
-    html += '<th>Low ₹</th>';
-    html += '<th>LTP ₹</th>';
-    html += '<th>Open-Low Gap %</th>';
-    html += '<th>20D Avg Turnover ₹ Cr</th>';
-    html += '<th>Today's Live Turnover ₹ Cr</th>';
-
-    html += '</tr></thead>';
-
-    html += '<tbody>';
-
-    results.forEach(
-        (row, index) => {
-
-        html += '<tr>';
-
-        html +=
-            '<td style="text-align:center">'
-            + (index + 1)
-            + '</td>';
-
-        html +=
-            '<td><b>'
-            + row.symbol
-            + '</b></td>';
-
-        html +=
-            '<td>'
-            + Number(row.open).toFixed(2)
-            + '</td>';
-
-        html +=
-            '<td>'
-            + Number(row.low).toFixed(2)
-            + '</td>';
-
-        html +=
-            '<td>'
-            + Number(row.ltp).toFixed(2)
-            + '</td>';
-
-        html +=
-            '<td>'
-            + Number(row.gap).toFixed(2)
-            + '%</td>';
-
-        html +=
-            '<td>'
-            + Number(row.avg_turnover).toFixed(2)
-            + '</td>';
-
-        html +=
-            '<td>'
-            + Number(row.live_turnover).toFixed(2)
-            + '</td>';
-
-        html += '</tr>';
-
-    });
-
-    html += '</tbody>';
-
-    html += '</table>';
-
-    html += '</div>';
-
-    area.innerHTML = html;
-}
-
-</script>
+</div>
 
 </body>
-
 </html>
 """
 
 
+# ============================================================
+# ROUTES
+# ============================================================
+
 @app.route("/")
 def home():
 
+    with state_lock:
+
+        current = dict(scan_state)
+
     return render_template_string(
-        HTML
+        PAGE,
+        status=current["status"],
+        message=current["message"],
+        progress=current["progress"],
+        done=current["done"],
+        total=current["total"],
+        results=current["results"],
+        started=current["started"],
+        finished=current["finished"],
+        error=current["error"],
+        scanning=current["status"] == "scanning"
     )
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
+@app.route("/scan")
+def scan():
+
+    with state_lock:
+        already_running = (
+            scan_state["status"] == "scanning"
+        )
+
+    if not already_running:
+        start_scan()
+
+    return redirect("/")
+
 
 @app.route("/health")
 def health():
@@ -1477,7 +1200,7 @@ def health():
 
 
 # ============================================================
-# MAIN
+# RUN
 # ============================================================
 
 if __name__ == "__main__":
@@ -1485,7 +1208,7 @@ if __name__ == "__main__":
     port = int(
         os.environ.get(
             "PORT",
-            "10000"
+            10000
         )
     )
 
