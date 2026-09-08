@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Open-Low Liquidity Scanner</title>
+
+<style>
+body{
+  font-family:Arial,sans-serif;
+  background:#f5f7fb;
+  margin:0;
+  color:#18212f
+}
+.wrap{
+  max-width:1050px;
+  margin:auto;
+  padding:16px
+}
+.card{
+  background:white;
+  border-radius:16px;
+  padding:18px;
+  margin:12px 0;
+  box-shadow:0 2px 12px #00000010
+}
+h1{
+  margin:0 0 8px;
+  font-size:28px
+}
+.sub{
+  color:#667085
+}
+.status{
+  padding:12px;
+  border-radius:10px;
+  background:#eef2f7;
+  font-weight:700
+}
+button{
+  border:0;
+  border-radius:10px;
+  background:#1769e0;
+  color:white;
+  padding:12px 18px;
+  font-size:16px;
+  font-weight:700
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px
+}
+.box{
+  background:#f7f9fc;
+  border-radius:12px;
+  padding:12px
+}
+.label{
+  font-size:12px;
+  color:#667085
+}
+.value{
+  font-weight:700;
+  margin-top:4px
+}
+.progress{
+  height:12px;
+  background:#e5e7eb;
+  border-radius:20px;
+  overflow:hidden;
+  margin-top:10px
+}
+.bar{
+  height:100%;
+  width:0;
+  background:#1769e0
+}
+.small{
+  font-size:13px;
+  color:#667085;
+  line-height:1.5
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px
+}
+th,td{
+  padding:10px 7px;
+  border-bottom:1px solid #e7eaf0;
+  text-align:right;
+  white-space:nowrap
+}
+th:first-child,
+td:first-child,
+th:nth-child(2),
+td:nth-child(2){
+  text-align:left
+}
+@media(max-width:700px){
+  .grid{
+    grid-template-columns:1fr 1fr
+  }
+  table{
+    font-size:12px
+  }
+  .wrap{
+    padding:9px
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<div class="card">
+<h1>Open-Low Liquidity Scanner</h1>
+<div class="sub">Fast NSE EQ live scanner</div>
+</div>
+
+<div class="card">
+
+<div id="status" class="status">
+Scanner शुरू हो रहा है...
+</div>
+
+<div class="progress">
+<div id="bar" class="bar"></div>
+</div>
+
+<p id="detail" class="small"></p>
+
+<button onclick="scanNow()">
+Scan Now
+</button>
+
+</div>
+
+<div class="grid">
+
+<div class="box">
+<div class="label">Price Filter</div>
+<div class="value">&gt; ₹20</div>
+</div>
+
+<div class="box">
+<div class="label">Open-Low Gap</div>
+<div class="value">≤ 0.50%</div>
+</div>
+
+<div class="box">
+<div class="label">Liquidity</div>
+<div class="value">≥ ₹10 Cr avg</div>
+</div>
+
+<div class="box">
+<div class="label">Universe</div>
+<div class="value">NSE EQ only</div>
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>
+Results: <span id="count">0</span>
+</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Rank</th>
+<th>Share</th>
+<th>LTP</th>
+<th>Open</th>
+<th>Low</th>
+<th>Gap</th>
+<th>Avg 20D Turnover</th>
+<th>Live Turnover</th>
+</tr>
+</thead>
+
+<tbody id="body">
+
+<tr>
+<td colspan="8">
+Results आने का इंतजार...
+</td>
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+<div class="card small">
+
+<b>Scanner Logic:</b><br>
+
+• Current Price &gt; ₹20<br>
+
+• Open-Low Gap ≤ 0.50%<br>
+
+• Current LTP &gt; Today's Open<br>
+
+• Previous 20 valid trading days Average Real Turnover ≥ ₹10 crore<br>
+
+• NSE EQ only; ETF / BE / BZ / SME excluded<br>
+
+• Smallest Open-Low Gap first<br>
+
+• Historical liquidity background में calculate होती है, इसलिए दूसरा tab खोलने पर scan फिर से शुरू नहीं होगा।
+
+</div>
+
+</div>
+
+<script>
+
+function cr(v){
+  return '₹'+Number(v||0).toLocaleString(
+    'en-IN',
+    {maximumFractionDigits:2}
+  );
+}
+
+function crore(v){
+  return '₹'+
+    (Number(v||0)/10000000).toFixed(2)+
+    ' Cr';
+}
+
+async function load(){
+
+  try{
+
+    const r=await fetch(
+      '/api/scan',
+      {cache:'no-store'}
+    );
+
+    const d=await r.json();
+
+    const status=
+      document.getElementById('status');
+
+    const detail=
+      document.getElementById('detail');
+
+    const bar=
+      document.getElementById('bar');
+
+    if(d.running){
+
+      status.textContent=
+        '● Fast scan चल रहा है...';
+
+    }else{
+
+      status.textContent=
+        '● Scan तैयार है';
+
+    }
+
+    const total=Math.max(
+      1,
+      Number(d.liquidity_total||0)
+    );
+
+    const done=Math.min(
+      total,
+      Number(d.liquidity_done||0)
+    );
+
+    const pct=d.running
+      ? Math.round(done*100/total)
+      : (d.results.length?100:0);
+
+    bar.style.width=pct+'%';
+
+    detail.textContent=
+      'आज की fast conditions से candidates: '+
+      (d.candidates||0)+
+      ' | Historical liquidity check: '+
+      done+'/'+
+      (d.liquidity_total||0)+
+      (d.error
+        ? ' | Error: '+d.error
+        : '');
+
+    const body=
+      document.getElementById('body');
+
+    document.getElementById(
+      'count'
+    ).textContent=d.results.length;
+
+    if(!d.results.length){
+
+      body.innerHTML=
+        '<tr><td colspan="8">'+
+        (
+          d.running
+          ? 'Qualifying shares मिलते ही यहाँ दिखेंगे...'
+          : 'अभी कोई share सभी conditions पास नहीं कर रहा है।'
+        )+
+        '</td></tr>';
+
+      return;
+    }
+
+    body.innerHTML=
+      d.results.map((x,i)=>`
+
+      <tr>
+
+        <td>${i+1}</td>
+
+        <td>
+          <b>${x.symbol}</b>
+        </td>
+
+        <td>
+          ${cr(x.price)}
+        </td>
+
+        <td>
+          ${cr(x.open)}
+        </td>
+
+        <td>
+          ${cr(x.low)}
+        </td>
+
+        <td>
+          <b>${Number(x.gap).toFixed(2)}%</b>
+        </td>
+
+        <td>
+          ${crore(x.avg_turnover)}
+        </td>
+
+        <td>
+          ${crore(x.live_turnover)}
+        </td>
+
+      </tr>
+
+      `).join('');
+
+  }catch(e){
+
+    document.getElementById(
+      'status'
+    ).textContent=
+      '● CONNECTION ERROR';
+
+    document.getElementById(
+      'detail'
+    ).textContent=
+      'Server response नहीं मिला।';
+
+  }
+
+}
+
+async function scanNow(){
+
+  await fetch(
+    '/api/scan-now',
+    {method:'POST'}
+  );
+
+  load();
+
+}
+
+load();
+
+setInterval(
+  load,
+  2000
+);
+
+</script>
+
+</body>
+</html>
