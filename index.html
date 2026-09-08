@@ -6,107 +6,200 @@
 <title>Open-Low Liquidity Scanner</title>
 
 <style>
+*{
+  box-sizing:border-box;
+}
+
 body{
-  font-family:Arial,sans-serif;
-  background:#f5f7fb;
   margin:0;
-  color:#18212f
+  background:#12151a;
+  color:#e6e9ef;
+  font-family:Arial,sans-serif;
 }
+
 .wrap{
-  max-width:1050px;
+  max-width:1100px;
   margin:auto;
-  padding:16px
+  padding:14px;
 }
+
 .card{
-  background:white;
-  border-radius:16px;
-  padding:18px;
+  background:#1b2027;
+  border:1px solid #2b323c;
+  border-radius:15px;
+  padding:17px;
   margin:12px 0;
-  box-shadow:0 2px 12px #00000010
+  box-shadow:0 3px 12px rgba(0,0,0,.25);
 }
+
 h1{
-  margin:0 0 8px;
-  font-size:28px
+  margin:0 0 7px;
+  font-size:27px;
+  color:#f1f3f6;
 }
+
+h2{
+  margin:0 0 14px;
+  color:#f1f3f6;
+}
+
 .sub{
-  color:#667085
+  color:#9da6b2;
 }
+
 .status{
-  padding:12px;
+  padding:13px;
   border-radius:10px;
-  background:#eef2f7;
-  font-weight:700
-}
-button{
-  border:0;
-  border-radius:10px;
-  background:#1769e0;
-  color:white;
-  padding:12px 18px;
-  font-size:16px;
-  font-weight:700
-}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:10px
-}
-.box{
-  background:#f7f9fc;
-  border-radius:12px;
-  padding:12px
-}
-.label{
-  font-size:12px;
-  color:#667085
-}
-.value{
+  background:#242b34;
+  border:1px solid #333c48;
+  color:#dfe5ed;
   font-weight:700;
-  margin-top:4px
 }
+
 .progress{
-  height:12px;
-  background:#e5e7eb;
+  height:10px;
+  background:#2a3038;
   border-radius:20px;
   overflow:hidden;
-  margin-top:10px
+  margin-top:12px;
 }
+
 .bar{
   height:100%;
   width:0;
-  background:#1769e0
+  background:#3b82f6;
+  transition:width .3s;
 }
+
+button{
+  border:0;
+  border-radius:10px;
+  background:#2563eb;
+  color:white;
+  padding:12px 20px;
+  font-size:16px;
+  font-weight:700;
+  margin-top:8px;
+}
+
+button:active{
+  background:#1d4ed8;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+
+.box{
+  background:#181d23;
+  border:1px solid #292f38;
+  border-radius:12px;
+  padding:13px;
+}
+
+.label{
+  font-size:12px;
+  color:#8993a1;
+}
+
+.value{
+  font-weight:700;
+  color:#e8ecf2;
+  margin-top:5px;
+}
+
 .small{
   font-size:13px;
-  color:#667085;
-  line-height:1.5
+  color:#9da6b2;
+  line-height:1.6;
 }
+
+.table-wrap{
+  width:100%;
+  overflow-x:auto;
+}
+
 table{
   width:100%;
   border-collapse:collapse;
-  font-size:14px
+  font-size:14px;
 }
+
+th{
+  background:#222830;
+  color:#aeb7c4;
+  font-weight:700;
+}
+
 th,td{
-  padding:10px 7px;
-  border-bottom:1px solid #e7eaf0;
+  padding:10px 8px;
+  border-bottom:1px solid #2b323b;
   text-align:right;
-  white-space:nowrap
+  white-space:nowrap;
 }
+
 th:first-child,
 td:first-child,
 th:nth-child(2),
 td:nth-child(2){
-  text-align:left
+  text-align:left;
 }
-@media(max-width:700px){
-  .grid{
-    grid-template-columns:1fr 1fr
-  }
-  table{
-    font-size:12px
-  }
+
+td{
+  color:#dce1e8;
+}
+
+tbody tr:hover{
+  background:#20262e;
+}
+
+.share{
+  color:#60a5fa;
+  font-weight:700;
+}
+
+.gap{
+  color:#86efac;
+  font-weight:700;
+}
+
+.rules{
+  background:#181d23;
+  border:1px solid #292f38;
+  border-radius:11px;
+  padding:13px;
+}
+
+.rules b{
+  color:#dfe5ed;
+}
+
+@media(max-width:750px){
+
   .wrap{
-    padding:9px
+    padding:9px;
+  }
+
+  h1{
+    font-size:24px;
+  }
+
+  .grid{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .card{
+    padding:13px;
+  }
+
+  table{
+    font-size:12px;
+  }
+
+  th,td{
+    padding:9px 7px;
   }
 }
 </style>
@@ -117,104 +210,132 @@ td:nth-child(2){
 <div class="wrap">
 
 <div class="card">
-<h1>Open-Low Liquidity Scanner</h1>
-<div class="sub">Fast NSE EQ live scanner</div>
+  <h1>Open-Low Liquidity Scanner</h1>
+  <div class="sub">Fast NSE EQ Live Scanner</div>
 </div>
 
 <div class="card">
 
-<div id="status" class="status">
-Scanner शुरू हो रहा है...
-</div>
+  <div id="status" class="status">
+    Scanner शुरू हो रहा है...
+  </div>
 
-<div class="progress">
-<div id="bar" class="bar"></div>
-</div>
+  <div class="progress">
+    <div id="bar" class="bar"></div>
+  </div>
 
-<p id="detail" class="small"></p>
+  <p id="detail" class="small">
+    Live data प्राप्त किया जा रहा है...
+  </p>
 
-<button onclick="scanNow()">
-Scan Now
-</button>
+  <button onclick="scanNow()">
+    Scan Now
+  </button>
 
 </div>
 
 <div class="grid">
 
-<div class="box">
-<div class="label">Price Filter</div>
-<div class="value">&gt; ₹20</div>
-</div>
+  <div class="box">
+    <div class="label">Price Filter</div>
+    <div class="value">&gt; ₹20</div>
+  </div>
 
-<div class="box">
-<div class="label">Open-Low Gap</div>
-<div class="value">≤ 0.50%</div>
-</div>
+  <div class="box">
+    <div class="label">Open-Low Gap</div>
+    <div class="value">≤ 0.50%</div>
+  </div>
 
-<div class="box">
-<div class="label">Liquidity</div>
-<div class="value">≥ ₹10 Cr avg</div>
-</div>
+  <div class="box">
+    <div class="label">Liquidity</div>
+    <div class="value">≥ ₹10 Cr Avg</div>
+  </div>
 
-<div class="box">
-<div class="label">Universe</div>
-<div class="value">NSE EQ only</div>
-</div>
+  <div class="box">
+    <div class="label">Universe</div>
+    <div class="value">NSE EQ Only</div>
+  </div>
 
 </div>
 
 <div class="card">
 
-<h2>
-Results: <span id="count">0</span>
-</h2>
+  <h2>
+    Results: <span id="count">0</span>
+  </h2>
 
-<table>
+  <div class="table-wrap">
 
-<thead>
-<tr>
-<th>Rank</th>
-<th>Share</th>
-<th>LTP</th>
-<th>Open</th>
-<th>Low</th>
-<th>Gap</th>
-<th>Avg 20D Turnover</th>
-<th>Live Turnover</th>
-</tr>
-</thead>
+    <table>
 
-<tbody id="body">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Share</th>
+          <th>LTP</th>
+          <th>Open</th>
+          <th>Low</th>
+          <th>Gap</th>
+          <th>Avg 20D Turnover</th>
+          <th>Live Turnover</th>
+        </tr>
+      </thead>
 
-<tr>
-<td colspan="8">
-Results आने का इंतजार...
-</td>
-</tr>
+      <tbody id="body">
 
-</tbody>
+        <tr>
+          <td colspan="8">
+            Qualifying shares मिलते ही यहाँ दिखाई देंगे...
+          </td>
+        </tr>
 
-</table>
+      </tbody>
+
+    </table>
+
+  </div>
 
 </div>
 
-<div class="card small">
+<div class="card">
 
-<b>Scanner Logic:</b><br>
+  <div class="rules">
 
-• Current Price &gt; ₹20<br>
+    <b>Scanner Logic</b>
 
-• Open-Low Gap ≤ 0.50%<br>
+    <p>
+      • Current Price &gt; ₹20
+    </p>
 
-• Current LTP &gt; Today's Open<br>
+    <p>
+      • Open-Low Gap ≤ 0.50%
+    </p>
 
-• Previous 20 valid trading days Average Real Turnover ≥ ₹10 crore<br>
+    <p>
+      • Current LTP &gt; Today's Open
+    </p>
 
-• NSE EQ only; ETF / BE / BZ / SME excluded<br>
+    <p>
+      • Previous 20 valid trading days Average Real Turnover ≥ ₹10 crore
+    </p>
 
-• Smallest Open-Low Gap first<br>
+    <p>
+      • NSE EQ only
+    </p>
 
-• Historical liquidity background में calculate होती है, इसलिए दूसरा tab खोलने पर scan फिर से शुरू नहीं होगा।
+    <p>
+      • ETF / BE / BZ / SME excluded
+    </p>
+
+    <p>
+      • Smallest Open-Low Gap first
+    </p>
+
+    <p>
+      • Historical liquidity background में calculate होती है
+    </p>
+
+  </div>
 
 </div>
 
@@ -222,163 +343,223 @@ Results आने का इंतजार...
 
 <script>
 
-function cr(v){
-  return '₹'+Number(v||0).toLocaleString(
-    'en-IN',
-    {maximumFractionDigits:2}
-  );
+function rupees(v){
+
+  return '₹' +
+    Number(v || 0).toLocaleString(
+      'en-IN',
+      {
+        maximumFractionDigits:2
+      }
+    );
+
 }
 
 function crore(v){
-  return '₹'+
-    (Number(v||0)/10000000).toFixed(2)+
+
+  return '₹' +
+    (Number(v || 0) / 10000000)
+      .toFixed(2) +
     ' Cr';
+
 }
+
 
 async function load(){
 
   try{
 
-    const r=await fetch(
+    const response = await fetch(
       '/api/scan',
-      {cache:'no-store'}
+      {
+        cache:'no-store'
+      }
     );
 
-    const d=await r.json();
+    const d = await response.json();
 
-    const status=
+    const status =
       document.getElementById('status');
 
-    const detail=
+    const detail =
       document.getElementById('detail');
 
-    const bar=
+    const bar =
       document.getElementById('bar');
+
 
     if(d.running){
 
-      status.textContent=
+      status.textContent =
         '● Fast scan चल रहा है...';
 
     }else{
 
-      status.textContent=
-        '● Scan तैयार है';
+      status.textContent =
+        '● Scanner तैयार है';
 
     }
 
-    const total=Math.max(
-      1,
-      Number(d.liquidity_total||0)
-    );
 
-    const done=Math.min(
-      total,
-      Number(d.liquidity_done||0)
-    );
+    const total =
+      Math.max(
+        1,
+        Number(d.liquidity_total || 0)
+      );
 
-    const pct=d.running
-      ? Math.round(done*100/total)
-      : (d.results.length?100:0);
+    const done =
+      Math.min(
+        total,
+        Number(d.liquidity_done || 0)
+      );
 
-    bar.style.width=pct+'%';
 
-    detail.textContent=
-      'आज की fast conditions से candidates: '+
-      (d.candidates||0)+
-      ' | Historical liquidity check: '+
-      done+'/'+
-      (d.liquidity_total||0)+
-      (d.error
-        ? ' | Error: '+d.error
-        : '');
+    let percent = 0;
 
-    const body=
+    if(d.running){
+
+      percent =
+        Math.round(
+          done * 100 / total
+        );
+
+    }else if(d.results.length){
+
+      percent = 100;
+
+    }
+
+
+    bar.style.width =
+      percent + '%';
+
+
+    detail.textContent =
+      'Live candidates: ' +
+      (d.candidates || 0) +
+      ' | Historical liquidity check: ' +
+      done + '/' +
+      (d.liquidity_total || 0) +
+      (
+        d.error
+        ? ' | Error: ' + d.error
+        : ''
+      );
+
+
+    const body =
       document.getElementById('body');
 
-    document.getElementById(
-      'count'
-    ).textContent=d.results.length;
+    const count =
+      document.getElementById('count');
+
+
+    count.textContent =
+      d.results.length;
+
 
     if(!d.results.length){
 
-      body.innerHTML=
-        '<tr><td colspan="8">'+
+      body.innerHTML =
+        '<tr>' +
+        '<td colspan="8">' +
         (
           d.running
-          ? 'Qualifying shares मिलते ही यहाँ दिखेंगे...'
+          ? 'Qualifying shares मिलते ही यहाँ दिखाई देंगे...'
           : 'अभी कोई share सभी conditions पास नहीं कर रहा है।'
-        )+
-        '</td></tr>';
+        ) +
+        '</td>' +
+        '</tr>';
 
       return;
+
     }
 
-    body.innerHTML=
-      d.results.map((x,i)=>`
 
-      <tr>
+    body.innerHTML =
+      d.results.map(
+        (x,i) => `
 
-        <td>${i+1}</td>
+        <tr>
 
-        <td>
-          <b>${x.symbol}</b>
-        </td>
+          <td>${i+1}</td>
 
-        <td>
-          ${cr(x.price)}
-        </td>
+          <td>
+            <span class="share">
+              ${x.symbol}
+            </span>
+          </td>
 
-        <td>
-          ${cr(x.open)}
-        </td>
+          <td>
+            ${rupees(x.price)}
+          </td>
 
-        <td>
-          ${cr(x.low)}
-        </td>
+          <td>
+            ${rupees(x.open)}
+          </td>
 
-        <td>
-          <b>${Number(x.gap).toFixed(2)}%</b>
-        </td>
+          <td>
+            ${rupees(x.low)}
+          </td>
 
-        <td>
-          ${crore(x.avg_turnover)}
-        </td>
+          <td>
+            <span class="gap">
+              ${Number(x.gap).toFixed(2)}%
+            </span>
+          </td>
 
-        <td>
-          ${crore(x.live_turnover)}
-        </td>
+          <td>
+            ${crore(x.avg_turnover)}
+          </td>
 
-      </tr>
+          <td>
+            ${crore(x.live_turnover)}
+          </td>
 
-      `).join('');
+        </tr>
 
-  }catch(e){
+        `
+      ).join('');
+
+
+  }catch(error){
 
     document.getElementById(
       'status'
-    ).textContent=
+    ).textContent =
       '● CONNECTION ERROR';
 
     document.getElementById(
       'detail'
-    ).textContent=
+    ).textContent =
       'Server response नहीं मिला।';
 
   }
 
 }
 
+
 async function scanNow(){
 
-  await fetch(
-    '/api/scan-now',
-    {method:'POST'}
-  );
+  try{
 
-  load();
+    await fetch(
+      '/api/scan-now',
+      {
+        method:'POST'
+      }
+    );
+
+    load();
+
+  }catch(error){
+
+    console.log(error);
+
+  }
 
 }
+
 
 load();
 
