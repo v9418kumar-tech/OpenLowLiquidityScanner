@@ -9,7 +9,8 @@
 body{margin:0;padding:12px;background:#11151a;color:#e8edf3;font-family:Arial,Helvetica,sans-serif}
 .container{max-width:1200px;margin:auto}
 .card{background:#1b2027;border:1px solid #2d3540;border-radius:18px;padding:16px;margin-bottom:14px}
-h1{margin:0;font-size:27px}.sub{color:#aeb8c5;margin-top:7px}
+h1{margin:0;font-size:27px}
+.sub{color:#aeb8c5;margin-top:7px}
 .status{background:#242b35;border-radius:13px;padding:13px;font-size:18px;font-weight:bold}
 button{margin-top:13px;background:#2f6df6;color:#fff;border:0;border-radius:12px;padding:13px 22px;font-size:18px;font-weight:bold}
 button:disabled{opacity:.5}
@@ -23,14 +24,13 @@ button:disabled{opacity:.5}
 table{width:100%;min-width:1050px;border-collapse:collapse}
 th{background:#242b35;color:#aeb8c5;text-align:left;padding:10px;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid #2b333e;white-space:nowrap}
-.symbol{font-weight:bold;font-size:16px}.strength{font-weight:bold;font-size:17px}.gap{font-weight:bold}
-.logic{color:#c2cad4;line-height:1.6}.error{display:none;margin-top:10px;background:#3a2025;border:1px solid #6b3039;color:#ffb7bf;border-radius:10px;padding:10px}
+.symbol{font-weight:bold;font-size:16px}
+.strength{font-weight:bold;font-size:17px}
+.gap{font-weight:bold}
+.logic{color:#c2cad4;line-height:1.6}
+.error{display:none;margin-top:10px;background:#3a2025;border:1px solid #6b3039;color:#ffb7bf;border-radius:10px;padding:10px}
 .empty{padding:20px;color:#aeb8c5}
-.preopen-note{display:none;background:#202b3a;border:1px solid #38506f;border-radius:13px;padding:12px;margin-bottom:14px;line-height:1.5}
-@media(max-width:700px){
- body{padding:8px}h1{font-size:23px}.filters{grid-template-columns:1fr 1fr}.filter{padding:10px}
- .table-wrap{overflow-x:auto}table{min-width:720px}
-}
+@media(max-width:700px){body{padding:8px}h1{font-size:23px}.filters{grid-template-columns:1fr 1fr}.filter{padding:10px}}
 </style>
 </head>
 <body>
@@ -38,13 +38,7 @@ td{padding:10px;border-bottom:1px solid #2b333e;white-space:nowrap}
 
 <div class="card">
 <h1>Open-Low Strength Scanner</h1>
-<div class="sub">NSE EQ • Pre-Open + Fast Live Scan • Strength Ranking</div>
-</div>
-
-<div class="preopen-note" id="preopenNote">
-<b>🔵 PRE-OPEN MODE</b><br>
-9:08 के बाद भी scanner Upstox का Indicative Equilibrium Price (IEP) पढ़कर ranking करेगा।
-9:15 पर यह अपने-आप आपके मौजूदा Live Open-Low Strength Scanner में बदल जाएगा।
+<div class="sub">NSE EQ • Fast Live Scan • Strength Ranking</div>
 </div>
 
 <div class="card">
@@ -66,7 +60,21 @@ td{padding:10px;border-bottom:1px solid #2b333e;white-space:nowrap}
 <h2 id="resultsTitle" style="margin-top:0">Results: 0</h2>
 <div class="table-wrap">
 <table>
-<thead id="tableHead"></thead>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Share</th>
+<th>Strength</th>
+<th class="desktopOnly">LTP</th>
+<th class="desktopOnly">Open</th>
+<th class="desktopOnly">Low</th>
+<th>Gap</th>
+<th>Recovery</th>
+<th>Gain</th>
+<th class="desktopOnly">Avg 20D Turnover</th>
+<th class="desktopOnly">Live Turnover</th>
+</tr>
+</thead>
 <tbody id="resultsBody">
 <tr><td colspan="11" class="empty">अभी scan शुरू नहीं हुआ है।</td></tr>
 </tbody>
@@ -74,7 +82,7 @@ td{padding:10px;border-bottom:1px solid #2b333e;white-space:nowrap}
 </div>
 </div>
 
-<div class="card logic" id="logicBox">
+<div class="card logic">
 <h3 style="margin-top:0">Ranking Logic</h3>
 <div>• Price &gt; ₹20</div>
 <div>• LTP &gt; Today's Open</div>
@@ -89,7 +97,6 @@ td{padding:10px;border-bottom:1px solid #2b333e;white-space:nowrap}
 
 <script>
 let polling=null;
-let lastMode="";
 
 function nf(v,d=2){
  if(v===null||v===undefined||isNaN(v)) return "-";
@@ -100,146 +107,119 @@ function cr(v){
  return nf(v,2)+" Cr";
 }
 
-function renderHead(mode){
- const h=document.getElementById("tableHead");
- if(mode==="preopen"){
-   h.innerHTML=`<tr>
-    <th>Rank</th><th>Share</th><th>IEP</th><th>Pre-Open Strength</th>
-    <th>IEP Gain</th><th>Prev Close</th><th>20D Turnover</th>
-   </tr>`;
- }else{
-   h.innerHTML=`<tr>
-    <th>Rank</th><th>Share</th><th>Strength</th><th>LTP</th><th>Open</th>
-    <th>Low</th><th>Gap</th><th>Recovery</th><th>Gain</th>
-    <th>Avg 20D Turnover</th><th>Live Turnover</th>
-   </tr>`;
- }
-}
-
 function updateScreen(data){
  if(!data) return;
- const mode=data.mode||"live";
- renderHead(mode);
-
- const note=document.getElementById("preopenNote");
- note.style.display=(mode==="preopen")?"block":"none";
-
- const btn=document.getElementById("scanButton");
- btn.style.display=(mode==="preopen")?"none":"inline-block";
 
  const status=document.getElementById("status");
- const results=Array.isArray(data.results)?data.results:[];
-
- if(mode==="preopen"){
-   status.textContent=data.connected ? "🔵 Pre-Open Data LIVE" : "🔵 Pre-Open Feed Connecting...";
-   document.getElementById("progressText").textContent =
-     (data.message||"")+" | Results: "+results.length;
- }else if(data.error || data.message?.includes("ERROR")){
+ if(data.error || data.message?.includes("ERROR")){
    status.textContent="Scanner में समस्या";
-   document.getElementById("progressText").textContent=data.message||"";
  }else if(data.running){
    status.textContent="Scanner चल रहा है...";
-   document.getElementById("progressText").textContent="Live candidates और 20-day liquidity check चल रहा है...";
  }else if(data.finished){
    status.textContent="Scanner पूरा हो गया";
-   document.getElementById("progressText").textContent="Results: "+results.length+" | Last update: "+(data.updated_at||"-");
  }else{
    status.textContent="Scanner तैयार है";
-   document.getElementById("progressText").textContent=data.message||"";
  }
+
+ document.getElementById("progressText").textContent =
+   data.running
+   ? "Live candidates और 20-day liquidity check चल रहा है... list आते ही दिखेगी"
+   : ("Results: "+(data.results||[]).length+" | Last update: "+(data.updated_at||"-"));
 
  const errorBox=document.getElementById("errorBox");
  if(data.message && data.message.toLowerCase().includes("error")){
-   errorBox.style.display="block"; errorBox.textContent=data.message;
- }else{ errorBox.style.display="none"; }
+   errorBox.style.display="block";
+   errorBox.textContent=data.message;
+ }else{
+   errorBox.style.display="none";
+ }
 
- document.getElementById("resultsTitle").textContent =
-   mode==="preopen" ? "Pre-Open Results: "+results.length : "Results: "+results.length;
+ const results=Array.isArray(data.results)?data.results:[];
+ document.getElementById("resultsTitle").textContent="Results: "+results.length;
 
  const body=document.getElementById("resultsBody");
  if(!results.length){
-   body.innerHTML='<tr><td colspan="'+(mode==="preopen"?7:11)+'" class="empty">'+
-     (mode==="preopen"
-       ? (data.connected ? "अभी कोई positive IEP वाला share नहीं मिला।" : "Pre-Open feed connect हो रहा है...")
-       : (data.running ? "Share check हो रहा है, कृपया प्रतीक्षा करें..." : "अभी कोई share सभी conditions पास नहीं कर रहा है।"))
-     +'</td></tr>';
+   body.innerHTML='<tr><td colspan="11" class="empty">'+
+     (data.running ? "Share check हो रहा है, कृपया प्रतीक्षा करें..." :
+     "अभी कोई share सभी conditions पास नहीं कर रहा है।")+
+     '</td></tr>';
    return;
  }
 
- if(mode==="preopen"){
-   body.innerHTML=results.map((r,i)=>`
-    <tr>
-     <td>${i+1}</td>
-     <td class="symbol">${r.symbol||"-"}</td>
-     <td>₹${nf(r.iep)}</td>
-     <td class="strength">${nf(r.strength,1)}</td>
-     <td>${nf(r.preopen_gain,2)}%</td>
-     <td>₹${nf(r.prev_close)}</td>
-     <td>${cr(r.avg_turnover_cr)}</td>
-    </tr>`).join("");
- }else{
-   body.innerHTML=results.map((r,i)=>`
-    <tr>
-     <td>${i+1}</td>
-     <td class="symbol">${r.symbol||"-"}</td>
-     <td class="strength">${nf(r.strength,1)}</td>
-     <td>₹${nf(r.price)}</td>
-     <td>₹${nf(r.open)}</td>
-     <td>₹${nf(r.low)}</td>
-     <td class="gap">${nf(r.gap,4)}%</td>
-     <td>${nf(r.recovery,2)}%</td>
-     <td>${nf(r.gain,2)}%</td>
-     <td>${cr(r.avg_turnover_cr)}</td>
-     <td>${cr(r.live_turnover_cr)}</td>
-    </tr>`).join("");
- }
+ body.innerHTML=results.map((r,i)=>`
+ <tr>
+  <td>${i+1}</td>
+  <td class="symbol">${r.symbol||"-"}</td>
+  <td class="strength">${nf(r.strength,1)}</td>
+  <td>₹${nf(r.price)}</td>
+  <td>₹${nf(r.open)}</td>
+  <td>₹${nf(r.low)}</td>
+  <td class="gap">${nf(r.gap,4)}%</td>
+  <td>${nf(r.recovery,2)}%</td>
+  <td>${nf(r.gain,2)}%</td>
+  <td>${cr(r.avg_turnover_cr)}</td>
+  <td>${cr(r.live_turnover_cr)}</td>
+ </tr>`).join("");
 }
 
 async function getScanStatus(){
  try{
-   const r=await fetch("/api/scan",{cache:"no-store"});
-   const data=await r.json();
-   updateScreen(data);
-   return data;
+  const r=await fetch("/api/scan",{cache:"no-store"});
+  const data=await r.json();
+  updateScreen(data);
+  return data;
  }catch(e){
-   const box=document.getElementById("errorBox");
-   box.style.display="block";
-   box.textContent="Server से data नहीं मिल रहा: "+e.message;
-   return null;
+  const box=document.getElementById("errorBox");
+  box.style.display="block";
+  box.textContent="Server से data नहीं मिल रहा: "+e.message;
+  return null;
  }
 }
 
 async function scanNow(){
  const btn=document.getElementById("scanButton");
- btn.disabled=true; btn.textContent="Scanning...";
+ btn.disabled=true;
+ btn.textContent="Scanning...";
+
  try{
-   const r=await fetch("/api/scan-now",{cache:"no-store"});
-   const data=await r.json();
-   updateScreen(data);
-   if(polling) clearInterval(polling);
-   polling=setInterval(async()=>{
-     const current=await getScanStatus();
-     if(current && current.finished && !current.running && current.mode==="live"){
-       clearInterval(polling); polling=null;
-       btn.disabled=false; btn.textContent="Scan Now";
-     }
-   },2000);
+  const r=await fetch("/api/scan-now",{cache:"no-store"});
+  const data=await r.json();
+  updateScreen(data);
+
+  if(polling) clearInterval(polling);
+  polling=setInterval(async()=>{
+   const current=await getScanStatus();
+   if(current && current.finished && !current.running){
+    clearInterval(polling);
+    polling=null;
+    btn.disabled=false;
+    btn.textContent="Scan Now";
+   }
+  },1000);
+
  }catch(e){
-   const box=document.getElementById("errorBox");
-   box.style.display="block"; box.textContent=e.message;
-   btn.disabled=false; btn.textContent="Scan Now";
+  const box=document.getElementById("errorBox");
+  box.style.display="block";
+  box.textContent=e.message;
+  btn.disabled=false;
+  btn.textContent="Scan Now";
  }
 }
 
 async function initialLoad(){
  const data=await getScanStatus();
- if(polling) clearInterval(polling);
-
- // One poll loop handles both modes. Around 9:15 it will switch
- // from pre-open data to the existing live scanner automatically.
- polling=setInterval(getScanStatus,3000);
+ if(data && data.running){
+  polling=setInterval(async()=>{
+   const current=await getScanStatus();
+   if(current && current.finished && !current.running){
+    clearInterval(polling);
+    polling=null;
+    document.getElementById("scanButton").disabled=false;
+    document.getElementById("scanButton").textContent="Scan Now";
+   }
+  },1000);
+ }
 }
-
 initialLoad();
 </script>
 </body>
