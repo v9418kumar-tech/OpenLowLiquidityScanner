@@ -404,27 +404,34 @@ def fetch_live_quotes():
 
     # Submit all small batches together. We only wait a short fixed window for
     # completed requests, so one bad Upstox request cannot hold the scan.
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futures = [ex.submit(_fetch_quote_batch, i, batch)
-                   for i, batch in enumerate(batches, 1)]
-        done, not_done = wait(futures, timeout=6)
+    # IMPORTANT: do not use a ThreadPoolExecutor context manager here.
+    # Its __exit__ waits for unfinished requests, defeating the 6-second cap.
+    ex = ThreadPoolExecutor(max_workers=workers)
+    futures = [ex.submit(_fetch_quote_batch, i, batch)
+               for i, batch in enumerate(batches, 1)]
+    done, not_done = wait(futures, timeout=6)
 
-        log(f"LIVE QUOTE WAIT DONE: {len(done)}/{len(futures)} batches finished")
+    log(f"LIVE QUOTE WAIT DONE: {len(done)}/{len(futures)} batches finished")
 
-        for f in done:
-            try:
-                n, quotes, error = f.result()
-            except Exception as e:
-                log(f"Live batch worker ERROR: {repr(e)}")
-                continue
-            if error:
-                log(f"Live batch {n} ERROR: {error}")
-                continue
-            all_quotes.extend(quotes)
-            log(f"Live batch {n}: {len(quotes)} quotes received.")
+    for f in done:
+        try:
+            n, quotes, error = f.result()
+        except Exception as e:
+            log(f"Live batch worker ERROR: {repr(e)}")
+            continue
+        if error:
+            log(f"Live batch {n} ERROR: {error}")
+            continue
+        all_quotes.extend(quotes)
+        log(f"Live batch {n}: {len(quotes)} quotes received.")
 
-        if not_done:
-            log(f"LIVE QUOTE ABANDONED: {len(not_done)} batch request(s) exceeded 6 seconds")
+    if not_done:
+        log(f"LIVE QUOTE ABANDONED: {len(not_done)} batch request(s) exceeded 6 seconds")
+        for f in not_done:
+            f.cancel()
+
+    # Never wait for timed-out workers. Their HTTP calls have their own timeout.
+    ex.shutdown(wait=False, cancel_futures=True)
 
     log(f"LIVE QUOTE DONE: {len(all_quotes)} quotes received")
 
