@@ -3,3 +3,4 @@ pandas
 requests
 yfinance
 gunicorn
+upstox-python-sdk==2.30.0
