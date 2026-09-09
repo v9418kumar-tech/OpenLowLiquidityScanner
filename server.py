@@ -6,7 +6,7 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 import requests
 import upstox_client
@@ -22,7 +22,7 @@ MAX_GAP = 0.50
 MIN_AVG_TURNOVER = 10_00_00_000.0
 LIQUIDITY_DAYS = 20
 MAX_WORKERS = 20
-BATCH_SIZE = 400
+BATCH_SIZE = 500
 CACHE_FILE = "liquidity_cache.json"
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -38,6 +38,7 @@ LAST_SCAN_ERROR = ""
 LAST_SCAN_DATE = None
 SCAN_RUNNING = False
 SCAN_LOCK = threading.Lock()
+LAST_SCAN_ATTEMPT_DATE = None
 
 # ------------------------------------------------------------
 # PRE-OPEN LIVE FEED
@@ -361,12 +362,11 @@ def _fetch_quote_batch(batch_no, batch):
     keys = ",".join(x["instrument_key"] for x in batch)
     log(f"Live batch {batch_no} START: {len(batch)} symbols")
     try:
-        # Short timeout: one stuck Upstox request must never hold the whole scanner.
         r = requests.get(
             BASE + "/v3/market-quote/quotes",
             headers=headers(),
             params={"instrument_key": keys},
-            timeout=(3, 5),
+            timeout=(2, 4),
         )
         if r.status_code != 200:
             return batch_no, [], f"HTTP {r.status_code}: {r.text[:250]}"
@@ -392,34 +392,40 @@ def fetch_live_quotes():
     batches = list(chunks(INSTRUMENTS, BATCH_SIZE))
     log(f"LIVE QUOTE START: {len(INSTRUMENTS)} NSE EQ stocks, {len(batches)} batches")
 
-    all_quotes = []
-    ok_batches = 0
-    workers = min(8, max(1, len(batches)))
-    ex = ThreadPoolExecutor(max_workers=workers)
-    futures = [ex.submit(_fetch_quote_batch, i, batch)
-               for i, batch in enumerate(batches, 1)]
+    if not batches:
+        raise RuntimeError("No NSE EQ instruments are loaded.")
 
-    try:
-        # Do not wait indefinitely for a bad network/API request.
-        for f in as_completed(futures, timeout=8):
-            n, quotes, error = f.result()
+    all_quotes = []
+    workers = min(len(batches), 6)
+
+    # Submit all small batches together. We only wait a short fixed window for
+    # completed requests, so one bad Upstox request cannot hold the scan.
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(_fetch_quote_batch, i, batch)
+                   for i, batch in enumerate(batches, 1)]
+        done, not_done = wait(futures, timeout=6)
+
+        log(f"LIVE QUOTE WAIT DONE: {len(done)}/{len(futures)} batches finished")
+
+        for f in done:
+            try:
+                n, quotes, error = f.result()
+            except Exception as e:
+                log(f"Live batch worker ERROR: {repr(e)}")
+                continue
             if error:
                 log(f"Live batch {n} ERROR: {error}")
                 continue
             all_quotes.extend(quotes)
-            ok_batches += 1
             log(f"Live batch {n}: {len(quotes)} quotes received.")
-    except TimeoutError:
-        log(f"LIVE QUOTE TIMEOUT: {ok_batches}/{len(batches)} batches completed within 8 seconds.")
-    finally:
-        # Do not block the request waiting for unfinished workers. Individual
-        # requests also have a 3s connect / 5s read timeout.
-        ex.shutdown(wait=False, cancel_futures=True)
 
-    log(f"LIVE QUOTE DONE: {len(all_quotes)} quotes from {ok_batches}/{len(batches)} batches")
+        if not_done:
+            log(f"LIVE QUOTE ABANDONED: {len(not_done)} batch request(s) exceeded 6 seconds")
 
-    if ok_batches == 0:
-        raise RuntimeError("Upstox live market quote API returned no usable batches. Check Render logs.")
+    log(f"LIVE QUOTE DONE: {len(all_quotes)} quotes received")
+
+    if not all_quotes:
+        raise RuntimeError("Upstox live market quote returned no usable data. Check token/API access and Render logs.")
 
     return all_quotes
 
@@ -706,20 +712,22 @@ def perform_scan():
     return results
 
 
-def start_scan():
-    global SCAN_RUNNING, LIVE_RESULTS, LAST_SCAN_ERROR
+def start_scan(force=False):
+    global SCAN_RUNNING, LIVE_RESULTS, LAST_SCAN_ERROR, LAST_SCAN_ATTEMPT_DATE
 
     with SCAN_LOCK:
         if SCAN_RUNNING:
             return False
         SCAN_RUNNING = True
+        LAST_SCAN_ATTEMPT_DATE = ist_now().date().isoformat()
 
     def runner():
-        global SCAN_RUNNING, LIVE_RESULTS, LAST_SCAN_ERROR
+        global SCAN_RUNNING, LIVE_RESULTS, LAST_SCAN_ERROR, LAST_SCAN_DATE
         try:
             LIVE_RESULTS = perform_scan()
         except Exception as e:
             LAST_SCAN_ERROR = repr(e)
+            LAST_SCAN_DATE = ist_now().date().isoformat()
             log(f"SCAN ERROR: {repr(e)}")
         finally:
             with SCAN_LOCK:
@@ -830,7 +838,7 @@ def scan():
     # At 9:15+ the existing live scanner starts automatically on the first
     # poll of the new trading day. Yesterday's results never block today's scan.
     today_key = ist_now().date().isoformat()
-    if LAST_SCAN_DATE != today_key and not SCAN_RUNNING:
+    if LAST_SCAN_DATE != today_key and LAST_SCAN_ATTEMPT_DATE != today_key and not SCAN_RUNNING:
         LIVE_RESULTS = []
         start_scan()
 
@@ -882,9 +890,11 @@ def scan_now():
             "message": "एक scan पहले से चल रहा है।",
         })
 
+    global LAST_SCAN_ATTEMPT_DATE
     LIVE_RESULTS = []
     LAST_SCAN_ERROR = ""
-    start_scan()
+    LAST_SCAN_ATTEMPT_DATE = None
+    start_scan(force=True)
 
     return jsonify({
         "mode": "live",
