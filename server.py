@@ -21,7 +21,7 @@ MIN_PRICE = 20.0
 MAX_GAP = 0.50
 MIN_AVG_TURNOVER = 10_00_00_000.0
 LIQUIDITY_DAYS = 20
-MAX_WORKERS = 8
+MAX_WORKERS = 20
 BATCH_SIZE = 500
 CACHE_FILE = "liquidity_cache.json"
 
@@ -448,7 +448,7 @@ def historical_20day_turnover(key, today):
         + start.isoformat()
     )
 
-    r = http.get(url, headers=headers(), timeout=20)
+    r = http.get(url, headers=headers(), timeout=8)
     r.raise_for_status()
     candles = r.json().get("data", {}).get("candles", [])
 
@@ -529,6 +529,15 @@ def live_candidates():
 
 
 def add_liquidity(candidates):
+    """Check 20D liquidity in parallel and publish qualifying rows incrementally.
+
+    The old version waited for every historical request before returning anything.
+    This version updates LIVE_RESULTS after each completed historical request, so the
+    browser starts receiving the final qualifying list while the remaining symbols
+    are still being checked.
+    """
+    global LIVE_RESULTS
+
     cache = load_cache()
     today = ist_now().date()
     today_key = today.isoformat()
@@ -538,11 +547,9 @@ def add_liquidity(candidates):
 
     for c in candidates:
         cached = cache.get(c["key"])
-        if (
-            isinstance(cached, dict)
-            and cached.get("date") == today_key
-            and cached.get("avg_turnover") is not None
-        ):
+        if (isinstance(cached, dict)
+                and cached.get("date") == today_key
+                and cached.get("avg_turnover") is not None):
             avg = float(cached["avg_turnover"])
             c["avg_turnover"] = avg
             if avg >= MIN_AVG_TURNOVER:
@@ -553,39 +560,54 @@ def add_liquidity(candidates):
     log(f"Liquidity cache hits: {len(candidates) - len(pending)}")
     log(f"Historical liquidity requests needed: {len(pending)}")
 
+    def publish_partial():
+        """Refresh the browser-visible results without waiting for all requests."""
+        nonlocal qualified
+        global LIVE_RESULTS
+        try:
+            apply_strength_score(qualified)
+            LIVE_RESULTS = [format_result(x) for x in qualified]
+        except Exception as e:
+            log(f"Partial result publish error: {repr(e)}")
+
+    # Cached qualifying candidates can be shown immediately.
+    publish_partial()
+
     def worker(c):
         try:
             return c["key"], historical_20day_turnover(c["key"], today), None
         except Exception as e:
             return c["key"], None, repr(e)
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = [ex.submit(worker, c) for c in pending]
-        pending_map = {c["key"]: c for c in pending}
+    if pending:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            futures = [ex.submit(worker, c) for c in pending]
+            pending_map = {c["key"]: c for c in pending}
 
-        for f in as_completed(futures):
-            key, value, error = f.result()
-            if error or value is None:
-                continue
+            completed = 0
+            for f in as_completed(futures):
+                completed += 1
+                key, value, error = f.result()
+                if error or value is None:
+                    log(f"Liquidity request failed [{completed}/{len(pending)}] {key}: {error}")
+                    continue
 
-            cache[key] = {"date": today_key, "avg_turnover": value}
-            c = pending_map.get(key)
-            if c is not None:
-                c["avg_turnover"] = value
-                if value >= MIN_AVG_TURNOVER:
-                    qualified.append(c)
+                cache[key] = {"date": today_key, "avg_turnover": value}
+                c = pending_map.get(key)
+                if c is not None:
+                    c["avg_turnover"] = value
+                    if value >= MIN_AVG_TURNOVER:
+                        qualified.append(c)
+
+                # IMPORTANT: publish immediately. The UI sees new qualifying shares
+                # every time one historical request finishes.
+                publish_partial()
+                if completed % 10 == 0 or completed == len(pending):
+                    log(f"Liquidity progress: {completed}/{len(pending)} | qualifying={len(qualified)}")
 
     save_cache(cache)
+    publish_partial()
     return qualified
-
-
-def percentile_score(values, value):
-    if not values:
-        return 0.0
-    if len(values) == 1:
-        return 100.0
-    rank = sum(1 for x in values if x <= value)
-    return 100.0 * (rank - 1) / max(1, len(values) - 1)
 
 
 def apply_strength_score(items):
@@ -646,9 +668,10 @@ def format_result(x):
 
 
 def perform_scan():
-    global LAST_SCAN_TIME, LAST_SCAN_ERROR, LAST_SCAN_DATE
+    global LAST_SCAN_TIME, LAST_SCAN_ERROR, LAST_SCAN_DATE, LIVE_RESULTS
     LAST_SCAN_ERROR = ""
 
+    LIVE_RESULTS = []
     log("STARTING OPEN-LOW STRENGTH SCAN")
 
     if not get_token():
