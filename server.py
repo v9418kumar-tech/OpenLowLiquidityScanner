@@ -39,6 +39,10 @@ LAST_SCAN_DATE = None
 SCAN_RUNNING = False
 SCAN_LOCK = threading.Lock()
 LAST_SCAN_ATTEMPT_DATE = None
+LAST_SCAN_EPOCH = 0.0
+SCAN_INTERVAL_SECONDS = 30
+QUALIFIED_TODAY = {}
+QUALIFIED_LOCK = threading.Lock()
 
 # ------------------------------------------------------------
 # PRE-OPEN LIVE FEED
@@ -545,14 +549,13 @@ def live_candidates():
 
 
 def add_liquidity(candidates):
-    """Check 20D liquidity in parallel and publish qualifying rows incrementally.
+    """Check 20D liquidity and permanently capture today's first-time qualifiers.
 
-    The old version waited for every historical request before returning anything.
-    This version updates LIVE_RESULTS after each completed historical request, so the
-    browser starts receiving the final qualifying list while the remaining symbols
-    are still being checked.
+    A symbol that qualifies after 09:15 is kept in QUALIFIED_TODAY even if it later
+    falls out of the live filter. Repeated live scans can therefore build today's
+    intraday qualifying list instead of showing only the latest snapshot.
     """
-    global LIVE_RESULTS
+    global LIVE_RESULTS, QUALIFIED_TODAY
 
     cache = load_cache()
     today = ist_now().date()
@@ -577,12 +580,16 @@ def add_liquidity(candidates):
     log(f"Historical liquidity requests needed: {len(pending)}")
 
     def publish_partial():
-        """Refresh the browser-visible results without waiting for all requests."""
+        """Merge newly verified qualifiers into today's persistent list."""
         nonlocal qualified
-        global LIVE_RESULTS
+        global LIVE_RESULTS, QUALIFIED_TODAY
         try:
-            apply_strength_score(qualified)
-            LIVE_RESULTS = [format_result(x) for x in qualified]
+            with QUALIFIED_LOCK:
+                for item in qualified:
+                    QUALIFIED_TODAY[item["key"]] = dict(item)
+                all_today = list(QUALIFIED_TODAY.values())
+            apply_strength_score(all_today)
+            LIVE_RESULTS = [format_result(x) for x in all_today]
         except Exception as e:
             log(f"Partial result publish error: {repr(e)}")
 
@@ -684,10 +691,15 @@ def format_result(x):
 
 
 def perform_scan():
-    global LAST_SCAN_TIME, LAST_SCAN_ERROR, LAST_SCAN_DATE, LIVE_RESULTS
+    global LAST_SCAN_TIME, LAST_SCAN_ERROR, LAST_SCAN_DATE, LAST_SCAN_EPOCH, LIVE_RESULTS, QUALIFIED_TODAY
     LAST_SCAN_ERROR = ""
 
-    LIVE_RESULTS = []
+    today_key = ist_now().date().isoformat()
+    if LAST_SCAN_DATE != today_key:
+        with QUALIFIED_LOCK:
+            QUALIFIED_TODAY = {}
+        LIVE_RESULTS = []
+        log("NEW TRADING DAY: clearing yesterday's qualifying list")
     log("STARTING OPEN-LOW STRENGTH SCAN")
 
     if not get_token():
@@ -699,16 +711,18 @@ def perform_scan():
 
     if not candidates:
         LAST_SCAN_TIME = ist_now().strftime("%Y-%m-%d %H:%M:%S")
+        LAST_SCAN_EPOCH = time.time()
         LAST_SCAN_DATE = ist_now().date().isoformat()
-        return []
+        return list(QUALIFIED_TODAY.values())
 
     qualified = add_liquidity(candidates)
     apply_strength_score(qualified)
 
     results = [format_result(x) for x in qualified]
     LAST_SCAN_TIME = ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    LAST_SCAN_EPOCH = time.time()
     LAST_SCAN_DATE = ist_now().date().isoformat()
-    log(f"FINAL QUALIFYING STOCKS: {len(results)}")
+    log(f"TODAY QUALIFYING STOCKS CAPTURED: {len(results)}")
     return results
 
 
@@ -835,11 +849,12 @@ def scan():
             "message": "UPSTOX_ACCESS_TOKEN Render Environment Variables में नहीं मिला।",
         }), 500
 
-    # At 9:15+ the existing live scanner starts automatically on the first
-    # poll of the new trading day. Yesterday's results never block today's scan.
+    # After 09:15 keep taking fresh snapshots during the session. Any symbol that
+    # qualifies is merged into QUALIFIED_TODAY and remains visible for the day.
     today_key = ist_now().date().isoformat()
-    if LAST_SCAN_DATE != today_key and LAST_SCAN_ATTEMPT_DATE != today_key and not SCAN_RUNNING:
-        LIVE_RESULTS = []
+    due = (LAST_SCAN_TIME is None or LAST_SCAN_DATE != today_key or
+           (time.time() - LAST_SCAN_EPOCH) >= SCAN_INTERVAL_SECONDS) if LAST_SCAN_EPOCH else True
+    if due and not SCAN_RUNNING:
         start_scan()
 
     return jsonify({
@@ -891,7 +906,8 @@ def scan_now():
         })
 
     global LAST_SCAN_ATTEMPT_DATE
-    LIVE_RESULTS = []
+    # Do not clear today's captured qualifiers. A manual scan adds any new
+    # qualifiers to the existing intraday list.
     LAST_SCAN_ERROR = ""
     LAST_SCAN_ATTEMPT_DATE = None
     start_scan(force=True)
