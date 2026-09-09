@@ -4,261 +4,188 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Open-Low Liquidity Scanner</title>
+<title>Open-Low Strength Scanner</title>
 
 <style>
-
-* {
-    box-sizing: border-box;
+*{
+    box-sizing:border-box;
 }
 
-body {
-    margin: 0;
-    padding: 16px;
-    background: #11151a;
-    color: #e8edf3;
-    font-family: Arial, Helvetica, sans-serif;
+body{
+    margin:0;
+    padding:10px;
+    background:#11151a;
+    color:#e8edf3;
+    font-family:Arial,Helvetica,sans-serif;
 }
 
-.container {
-    max-width: 1100px;
-    margin: auto;
+.container{
+    max-width:1250px;
+    margin:auto;
 }
 
-.header {
-    background: #1b2027;
-    border: 1px solid #2d3540;
-    border-radius: 22px;
-    padding: 22px;
-    margin-bottom: 18px;
-    box-shadow: 0 8px 25px rgba(0,0,0,.25);
+.card{
+    background:#1b2027;
+    border:1px solid #2d3540;
+    border-radius:16px;
+    padding:15px;
+    margin-bottom:12px;
 }
 
-.header h1 {
-    margin: 0;
-    font-size: 32px;
+h1{
+    margin:0;
+    font-size:25px;
 }
 
-.header p {
-    margin: 10px 0 0;
-    color: #aeb8c5;
-    font-size: 18px;
+.sub{
+    color:#aeb8c5;
+    margin-top:6px;
 }
 
-.status-card {
-    background: #1b2027;
-    border: 1px solid #2d3540;
-    border-radius: 22px;
-    padding: 22px;
-    margin-bottom: 18px;
+.status{
+    background:#242b35;
+    border-radius:12px;
+    padding:12px;
+    font-size:17px;
+    font-weight:bold;
 }
 
-.status {
-    background: #242b35;
-    border: 1px solid #36404d;
-    border-radius: 16px;
-    padding: 16px;
-    font-size: 21px;
-    font-weight: bold;
+button{
+    margin-top:12px;
+    background:#2f6df6;
+    color:white;
+    border:0;
+    border-radius:10px;
+    padding:12px 20px;
+    font-size:17px;
+    font-weight:bold;
 }
 
-.dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    background: #58d68d;
-    border-radius: 50%;
-    margin-right: 8px;
+button:disabled{
+    opacity:.5;
 }
 
-.progress-wrap {
-    margin-top: 18px;
-    background: #2a313b;
-    border-radius: 12px;
-    height: 16px;
-    overflow: hidden;
+.progress-wrap{
+    margin-top:12px;
+    background:#2a313b;
+    border-radius:10px;
+    height:10px;
+    overflow:hidden;
 }
 
-.progress {
-    height: 100%;
-    width: 0%;
-    background: #2f6df6;
-    transition: width .3s ease;
+.progress{
+    height:100%;
+    width:0%;
+    background:#2f6df6;
 }
 
-.progress-text {
-    margin-top: 14px;
-    color: #aeb8c5;
-    font-size: 16px;
+.info{
+    margin-top:9px;
+    color:#aeb8c5;
 }
 
-button {
-    margin-top: 22px;
-    background: #2f6df6;
-    color: white;
-    border: none;
-    border-radius: 14px;
-    padding: 15px 30px;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
+.filters{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:9px;
 }
 
-button:active {
-    transform: scale(.98);
+.filter{
+    background:#181d23;
+    border:1px solid #29313b;
+    border-radius:12px;
+    padding:11px;
 }
 
-button:disabled {
-    opacity: .55;
-    cursor: not-allowed;
+.ft{
+    font-size:12px;
+    color:#8f9baa;
 }
 
-.filters {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    margin-bottom: 18px;
+.fv{
+    font-size:17px;
+    font-weight:bold;
+    margin-top:4px;
 }
 
-.filter {
-    background: #181d23;
-    border: 1px solid #29313b;
-    border-radius: 18px;
-    padding: 18px;
+.table-wrap{
+    overflow-x:auto;
 }
 
-.filter-title {
-    color: #8f9baa;
-    font-size: 16px;
-    margin-bottom: 7px;
+table{
+    width:100%;
+    min-width:1150px;
+    border-collapse:collapse;
 }
 
-.filter-value {
-    font-size: 22px;
-    font-weight: bold;
+th{
+    background:#242b35;
+    color:#aeb8c5;
+    text-align:left;
+    padding:9px;
+    white-space:nowrap;
+    position:sticky;
+    top:0;
 }
 
-.results-card {
-    background: #1b2027;
-    border: 1px solid #2d3540;
-    border-radius: 22px;
-    padding: 20px;
-    overflow: hidden;
+td{
+    padding:9px;
+    border-bottom:1px solid #2b333e;
+    white-space:nowrap;
 }
 
-.results-title {
-    font-size: 30px;
-    font-weight: bold;
-    margin-bottom: 18px;
+.symbol{
+    font-weight:bold;
+    font-size:16px;
 }
 
-.table-wrap {
-    width: 100%;
-    overflow-x: auto;
+.strength{
+    font-weight:bold;
+    font-size:17px;
 }
 
-table {
-    width: 100%;
-    min-width: 900px;
-    border-collapse: collapse;
+.gap{
+    font-weight:bold;
 }
 
-th {
-    background: #242b35;
-    color: #aeb8c5;
-    text-align: left;
-    padding: 13px 10px;
-    font-size: 15px;
-    white-space: nowrap;
+.empty{
+    padding:20px;
+    color:#aeb8c5;
 }
 
-td {
-    padding: 13px 10px;
-    border-bottom: 1px solid #2b333e;
-    white-space: nowrap;
+.error{
+    display:none;
+    margin-top:10px;
+    background:#3a2025;
+    border:1px solid #6b3039;
+    color:#ffb7bf;
+    border-radius:10px;
+    padding:10px;
 }
 
-tr:hover {
-    background: #20262e;
+.logic{
+    color:#c2cad4;
+    line-height:1.6;
 }
 
-.symbol {
-    font-weight: bold;
-    font-size: 17px;
-}
+@media(max-width:700px){
 
-.positive {
-    font-weight: bold;
-}
-
-.empty {
-    padding: 20px 10px;
-    color: #aeb8c5;
-    font-size: 17px;
-}
-
-.logic {
-    margin-top: 18px;
-    background: #181d23;
-    border: 1px solid #29313b;
-    border-radius: 18px;
-    padding: 20px;
-}
-
-.logic h2 {
-    margin-top: 0;
-    font-size: 22px;
-}
-
-.logic p {
-    color: #c2cad4;
-    line-height: 1.6;
-    margin: 8px 0;
-}
-
-.error {
-    display: none;
-    margin-top: 15px;
-    background: #3a2025;
-    border: 1px solid #6b3039;
-    color: #ffb7bf;
-    border-radius: 12px;
-    padding: 13px;
-}
-
-@media (max-width: 650px) {
-
-    body {
-        padding: 10px;
+    body{
+        padding:7px;
     }
 
-    .header h1 {
-        font-size: 27px;
+    h1{
+        font-size:22px;
     }
 
-    .filters {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
+    .filters{
+        grid-template-columns:1fr 1fr;
     }
 
-    .filter {
-        padding: 14px;
+    .filter{
+        padding:9px;
     }
-
-    .filter-title {
-        font-size: 14px;
-    }
-
-    .filter-value {
-        font-size: 19px;
-    }
-
-    button {
-        width: 100%;
-    }
-
 }
-
 </style>
 </head>
 
@@ -266,213 +193,183 @@ tr:hover {
 
 <div class="container">
 
-    <!-- HEADER -->
+<div class="card">
 
-    <div class="header">
+<h1>Open-Low Strength Scanner</h1>
 
-        <h1>
-            Open-Low Liquidity Scanner
-        </h1>
+<div class="sub">
+NSE EQ • Fast Live Scan • Strongest Share First
+</div>
 
-        <p>
-            Fast NSE EQ Live Scanner
-        </p>
+</div>
 
-    </div>
 
+<div class="card">
 
-    <!-- STATUS -->
+<div class="status" id="status">
+Scanner तैयार है
+</div>
 
-    <div class="status-card">
+<div class="progress-wrap">
+<div class="progress" id="progress"></div>
+</div>
 
-        <div class="status" id="status">
-            <span class="dot"></span>
-            Scanner तैयार है
-        </div>
+<div class="info" id="progressText">
+Live scan शुरू होने की प्रतीक्षा...
+</div>
 
-        <div class="progress-wrap">
-            <div
-                class="progress"
-                id="progress">
-            </div>
-        </div>
+<button id="scanButton" onclick="scanNow()">
+Scan Now
+</button>
 
-        <div
-            class="progress-text"
-            id="progressText">
+<div class="error" id="errorBox"></div>
 
-            Live candidates: 0 |
-            Historical liquidity check: 0/0
+</div>
 
-        </div>
 
-        <button
-            id="scanButton"
-            onclick="scanNow()">
+<div class="filters">
 
-            Scan Now
+<div class="filter">
+<div class="ft">Price</div>
+<div class="fv">&gt; ₹20</div>
+</div>
 
-        </button>
+<div class="filter">
+<div class="ft">Open-Low Gap</div>
+<div class="fv">≤ 0.50%</div>
+</div>
 
-        <div
-            class="error"
-            id="errorBox">
-        </div>
+<div class="filter">
+<div class="ft">20D Liquidity</div>
+<div class="fv">≥ ₹10 Cr</div>
+</div>
 
-    </div>
+<div class="filter">
+<div class="ft">Universe</div>
+<div class="fv">NSE EQ Only</div>
+</div>
 
+</div>
 
-    <!-- FILTERS -->
 
-    <div class="filters">
+<div class="card" style="margin-top:12px">
 
-        <div class="filter">
+<h2 id="resultsTitle" style="margin-top:0">
+Results: 0
+</h2>
 
-            <div class="filter-title">
-                Price Filter
-            </div>
+<div class="table-wrap">
 
-            <div class="filter-value">
-                &gt; ₹20
-            </div>
+<table>
 
-        </div>
+<thead>
 
+<tr>
 
-        <div class="filter">
+<th>Rank</th>
 
-            <div class="filter-title">
-                Open-Low Gap
-            </div>
+<th>Share</th>
 
-            <div class="filter-value">
-                ≤ 0.50%
-            </div>
+<th>Strength</th>
 
-        </div>
+<th>LTP</th>
 
+<th>Open</th>
 
-        <div class="filter">
+<th>Low</th>
 
-            <div class="filter-title">
-                Liquidity
-            </div>
+<th>Gap</th>
 
-            <div class="filter-value">
-                ≥ ₹10 Cr Avg
-            </div>
+<th>Recovery</th>
 
-        </div>
+<th>Gain</th>
 
+<th>Avg 20D Turnover</th>
 
-        <div class="filter">
+<th>Live Turnover</th>
 
-            <div class="filter-title">
-                Universe
-            </div>
+</tr>
 
-            <div class="filter-value">
-                NSE EQ Only
-            </div>
+</thead>
 
-        </div>
+<tbody id="resultsBody">
 
-    </div>
+<tr>
 
+<td colspan="11" class="empty">
+अभी scan शुरू नहीं हुआ है।
+</td>
 
-    <!-- RESULTS -->
+</tr>
 
-    <div class="results-card">
+</tbody>
 
-        <div
-            class="results-title"
-            id="resultsTitle">
+</table>
 
-            Results: 0
+</div>
 
-        </div>
+</div>
 
-        <div class="table-wrap">
 
-            <table>
+<div class="card logic">
 
-                <thead>
+<h3 style="margin-top:0">
+Ranking Logic
+</h3>
 
-                    <tr>
+<div>
+• Price &gt; ₹20
+</div>
 
-                        <th>Rank</th>
-                        <th>Share</th>
-                        <th>LTP</th>
-                        <th>Open</th>
-                        <th>Low</th>
-                        <th>Gap</th>
-                        <th>Avg 20D Turnover</th>
-                        <th>Live Turnover</th>
+<div>
+• LTP &gt; Today's Open
+</div>
 
-                    </tr>
+<div>
+• Open-Low Gap ≤ 0.50%
+</div>
 
-                </thead>
+<div>
+• Previous 20 valid trading days Average Real Turnover ≥ ₹10 Cr
+</div>
 
-                <tbody id="resultsBody">
+<div>
+• NSE EQ only, ETF / BE / BZ / SME excluded
+</div>
 
-                    <tr>
+<br>
 
-                        <td
-                            colspan="8"
-                            class="empty">
+<div>
+<b>Strength Score / 100</b>
+</div>
 
-                            अभी कोई share सभी conditions पास नहीं कर रहा है।
+<div>
+• Open-Low Gap = 30%
+</div>
 
-                        </td>
+<div>
+• Low से LTP Recovery = 25%
+</div>
 
-                    </tr>
+<div>
+• Today's Gain = 15%
+</div>
 
-                </tbody>
+<div>
+• Live Turnover = 20%
+</div>
 
-            </table>
+<div>
+• 20D Average Turnover = 10%
+</div>
 
-        </div>
+<br>
 
-    </div>
+<div>
+<b>Rank 1 = सबसे मजबूत qualifying share</b>
+</div>
 
-
-    <!-- LOGIC -->
-
-    <div class="logic">
-
-        <h2>
-            Scanner Logic
-        </h2>
-
-        <p>
-            • Current Price &gt; ₹20
-        </p>
-
-        <p>
-            • Open-Low Gap ≤ 0.50%
-        </p>
-
-        <p>
-            • Current LTP &gt; Today's Open
-        </p>
-
-        <p>
-            • Previous 20 valid trading days Average Real Turnover ≥ ₹10 crore
-        </p>
-
-        <p>
-            • NSE EQ only
-        </p>
-
-        <p>
-            • ETF / BE / BZ / SME excluded
-        </p>
-
-        <p>
-            • Results sorted by smallest Open-Low Gap first
-        </p>
-
-    </div>
+</div>
 
 </div>
 
@@ -482,187 +379,139 @@ tr:hover {
 let polling = null;
 
 
-/* ========================================================
-   FORMAT NUMBER
-======================================================== */
+function nf(value, decimals = 2){
 
-function numberFormat(value, decimals = 2) {
-
-    if (
+    if(
         value === null ||
         value === undefined ||
         isNaN(value)
-    ) {
+    ){
         return "-";
     }
 
     return Number(value).toLocaleString(
         "en-IN",
         {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
+            minimumFractionDigits:decimals,
+            maximumFractionDigits:decimals
         }
     );
 }
 
 
-/* ========================================================
-   FORMAT CRORE
-======================================================== */
+function crore(value){
 
-function crore(value) {
-
-    if (
+    if(
         value === null ||
         value === undefined ||
         isNaN(value)
-    ) {
+    ){
         return "-";
     }
 
-    return (
-        Number(value)
-        .toLocaleString(
-            "en-IN",
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }
-        )
-        + " Cr"
-    );
+    return nf(value,2) + " Cr";
 }
 
 
-/* ========================================================
-   UPDATE SCREEN
-======================================================== */
+function updateScreen(data){
 
-function updateScreen(data) {
-
-    if (!data) {
+    if(!data){
         return;
     }
 
 
-    /* STATUS */
-
     const status =
-        document.getElementById(
-            "status"
-        );
+        document.getElementById("status");
 
 
-    if (data.error) {
+    if(data.error){
 
-        status.innerHTML =
-            '<span class="dot"></span>' +
-            'Scanner में समस्या';
+        status.textContent =
+            "Scanner में समस्या";
 
     }
+    else if(data.running){
 
-    else if (data.running) {
-
-        status.innerHTML =
-            '<span class="dot"></span>' +
-            'Scanner चल रहा है...';
+        status.textContent =
+            "Scanner चल रहा है...";
 
     }
+    else if(data.finished){
 
-    else if (data.finished) {
-
-        status.innerHTML =
-            '<span class="dot"></span>' +
-            'Scanner पूरा हो गया';
+        status.textContent =
+            "Scanner पूरा हो गया";
 
     }
+    else{
 
-    else {
-
-        status.innerHTML =
-            '<span class="dot"></span>' +
-            'Scanner तैयार है';
+        status.textContent =
+            "Scanner तैयार है";
 
     }
 
 
-    /* PROGRESS */
+    const progress =
+        document.getElementById("progress");
 
-    const total =
-        Number(data.total || 0);
 
-    const checked =
-        Number(data.checked || 0);
+    if(data.running){
 
-    let percent = 0;
+        progress.style.width = "70%";
 
-    if (total > 0) {
+    }
+    else if(data.finished){
 
-        percent =
-            (checked / total) * 100;
+        progress.style.width = "100%";
+
+    }
+    else{
+
+        progress.style.width = "0%";
 
     }
 
-    document.getElementById(
-        "progress"
-    ).style.width =
-        percent + "%";
-
-
-    /* PROGRESS TEXT */
 
     document.getElementById(
         "progressText"
-    ).textContent =
+    ).textContent = data.running
 
-        "Live candidates: "
-        + Number(
-            data.live_candidates || 0
-        )
+        ? "Live candidates और 20D liquidity check चल रहा है..."
 
-        + " | Historical liquidity check: "
-
-        + checked
-
-        + "/"
-
-        + total;
-
-
-    /* ERROR */
-
-    const errorBox =
-        document.getElementById(
-            "errorBox"
+        : (
+            "Results: " +
+            (data.results || []).length +
+            " | Last update: " +
+            (data.updated_at || "-")
         );
 
-    if (data.error) {
 
-        errorBox.style.display =
-            "block";
+    const errorBox =
+        document.getElementById("errorBox");
+
+
+    if(
+        data.message &&
+        (
+            data.message.toLowerCase().includes("error") ||
+            data.message.toLowerCase().includes("missing")
+        )
+    ){
+
+        errorBox.style.display = "block";
 
         errorBox.textContent =
-            data.error;
+            data.message;
+
+    }
+    else{
+
+        errorBox.style.display = "none";
 
     }
 
-    else {
-
-        errorBox.style.display =
-            "none";
-
-        errorBox.textContent =
-            "";
-
-    }
-
-
-    /* RESULTS */
 
     const results =
-        Array.isArray(
-            data.results
-        )
+        Array.isArray(data.results)
         ? data.results
         : [];
 
@@ -670,8 +519,7 @@ function updateScreen(data) {
     document.getElementById(
         "resultsTitle"
     ).textContent =
-        "Results: "
-        + results.length;
+        "Results: " + results.length;
 
 
     const body =
@@ -680,23 +528,18 @@ function updateScreen(data) {
         );
 
 
-    if (results.length === 0) {
+    if(!results.length){
 
-        body.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="8"
-                    class="empty">
-
-                    अभी कोई share सभी conditions पास नहीं कर रहा है।
-
-                </td>
-
-            </tr>
-
-        `;
+        body.innerHTML =
+            '<tr>' +
+            '<td colspan="11" class="empty">' +
+            (
+                data.running
+                ? "Share check हो रहा है, कृपया प्रतीक्षा करें..."
+                : "अभी कोई share सभी conditions पास नहीं कर रहा है।"
+            ) +
+            '</td>' +
+            '</tr>';
 
         return;
     }
@@ -704,157 +547,140 @@ function updateScreen(data) {
 
     body.innerHTML =
         results.map(
-            (row, index) => `
+            (r,i) => `
 
-            <tr>
+<tr>
 
-                <td>
-                    ${index + 1}
-                </td>
+<td>${i + 1}</td>
 
-                <td class="symbol">
-                    ${row.symbol || "-"}
-                </td>
+<td class="symbol">
+${r.symbol || "-"}
+</td>
 
-                <td>
-                    ₹${numberFormat(row.price)}
-                </td>
+<td class="strength">
+${nf(r.strength,1)}
+</td>
 
-                <td>
-                    ₹${numberFormat(row.open)}
-                </td>
+<td>
+₹${nf(r.price,2)}
+</td>
 
-                <td>
-                    ₹${numberFormat(row.low)}
-                </td>
+<td>
+₹${nf(r.open,2)}
+</td>
 
-                <td class="positive">
-                    ${numberFormat(row.gap, 2)}%
-                </td>
+<td>
+₹${nf(r.low,2)}
+</td>
 
-                <td>
-                    ${crore(row.avg_turnover_cr)}
-                </td>
+<td class="gap">
+${nf(r.gap,4)}%
+</td>
 
-                <td>
-                    ${crore(row.live_turnover_cr)}
-                </td>
+<td>
+${nf(r.recovery,2)}%
+</td>
 
-            </tr>
+<td>
+${nf(r.gain,2)}%
+</td>
 
-        `
+<td>
+${crore(r.avg_turnover_cr)}
+</td>
+
+<td>
+${crore(r.live_turnover_cr)}
+</td>
+
+</tr>
+
+`
         ).join("");
 
 }
 
 
-/* ========================================================
-   GET CURRENT SCAN STATUS
-======================================================== */
+async function getScanStatus(){
 
-async function getScanStatus() {
-
-    try {
+    try{
 
         const response =
             await fetch(
                 "/api/scan",
                 {
-                    cache: "no-store"
+                    cache:"no-store"
                 }
             );
 
-        if (!response.ok) {
-            throw new Error(
-                "Server response error: "
-                + response.status
-            );
-        }
 
         const data =
             await response.json();
 
-        updateScreen(
-            data
-        );
+
+        updateScreen(data);
+
 
         return data;
 
     }
+    catch(error){
 
-    catch (error) {
-
-        console.error(
-            error
-        );
-
-        const errorBox =
+        const box =
             document.getElementById(
                 "errorBox"
             );
 
-        errorBox.style.display =
+
+        box.style.display =
             "block";
 
-        errorBox.textContent =
-            "Server से data नहीं मिल रहा: "
-            + error.message;
+
+        box.textContent =
+            "Server से data नहीं मिल रहा: " +
+            error.message;
+
 
         return null;
+
     }
 
 }
 
 
-/* ========================================================
-   SCAN NOW
-======================================================== */
-
-async function scanNow() {
+async function scanNow(){
 
     const button =
         document.getElementById(
             "scanButton"
         );
 
-    button.disabled =
-        true;
+
+    button.disabled = true;
 
     button.textContent =
         "Scanning...";
 
 
-    try {
+    try{
 
         const response =
             await fetch(
                 "/api/scan-now",
                 {
-                    method: "GET",
-                    cache: "no-store"
+                    cache:"no-store"
                 }
             );
 
-        if (!response.ok) {
-
-            throw new Error(
-                "Scan request failed: "
-                + response.status
-            );
-
-        }
 
         const data =
             await response.json();
 
-        updateScreen(
-            data
-        );
+
+        updateScreen(data);
 
 
-        /* Start polling */
-
-        if (polling) {
+        if(polling){
 
             clearInterval(
                 polling
@@ -862,24 +688,26 @@ async function scanNow() {
 
         }
 
+
         polling =
             setInterval(
-                async function() {
+                async () => {
 
                     const current =
                         await getScanStatus();
 
-                    if (
+
+                    if(
                         current &&
-                        current.finished
-                    ) {
+                        current.finished &&
+                        !current.running
+                    ){
 
                         clearInterval(
                             polling
                         );
 
-                        polling =
-                            null;
+                        polling = null;
 
                         button.disabled =
                             false;
@@ -893,25 +721,22 @@ async function scanNow() {
                 2000
             );
 
-
     }
+    catch(error){
 
-    catch (error) {
-
-        console.error(
-            error
-        );
-
-        const errorBox =
+        const box =
             document.getElementById(
                 "errorBox"
             );
 
-        errorBox.style.display =
+
+        box.style.display =
             "block";
 
-        errorBox.textContent =
+
+        box.textContent =
             error.message;
+
 
         button.disabled =
             false;
@@ -924,44 +749,40 @@ async function scanNow() {
 }
 
 
-/* ========================================================
-   PAGE LOAD
-======================================================== */
-
-async function initialLoad() {
+async function initialLoad(){
 
     const data =
         await getScanStatus();
 
 
-    if (
+    if(
         data &&
         data.running
-    ) {
+    ){
 
         polling =
             setInterval(
-                async function() {
+                async () => {
 
                     const current =
                         await getScanStatus();
 
-                    if (
+
+                    if(
                         current &&
-                        current.finished
-                    ) {
+                        current.finished &&
+                        !current.running
+                    ){
 
                         clearInterval(
                             polling
                         );
 
-                        polling =
-                            null;
+                        polling = null;
 
                         document.getElementById(
                             "scanButton"
-                        ).disabled =
-                            false;
+                        ).disabled = false;
 
                         document.getElementById(
                             "scanButton"
