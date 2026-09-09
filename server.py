@@ -22,7 +22,7 @@ MAX_GAP = 0.50
 MIN_AVG_TURNOVER = 10_00_00_000.0
 LIQUIDITY_DAYS = 20
 MAX_WORKERS = 20
-BATCH_SIZE = 500
+BATCH_SIZE = 400
 CACHE_FILE = "liquidity_cache.json"
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -359,15 +359,15 @@ def preopen_results(limit=100):
 
 def _fetch_quote_batch(batch_no, batch):
     keys = ",".join(x["instrument_key"] for x in batch)
+    log(f"Live batch {batch_no} START: {len(batch)} symbols")
     try:
-        # One independent request per worker keeps the live scan parallel and
-        # avoids waiting for one slow 500-symbol batch before starting the next.
+        # Short timeout: one stuck Upstox request must never hold the whole scanner.
         r = requests.get(
             BASE + "/v3/market-quote/quotes",
             headers=headers(),
             params={"instrument_key": keys},
-            timeout=15,
-    )
+            timeout=(3, 5),
+        )
         if r.status_code != 200:
             return batch_no, [], f"HTTP {r.status_code}: {r.text[:250]}"
 
@@ -390,16 +390,18 @@ def _fetch_quote_batch(batch_no, batch):
 def fetch_live_quotes():
     load_instruments()
     batches = list(chunks(INSTRUMENTS, BATCH_SIZE))
+    log(f"LIVE QUOTE START: {len(INSTRUMENTS)} NSE EQ stocks, {len(batches)} batches")
+
     all_quotes = []
     ok_batches = 0
-
-    # NSE EQ is normally only a handful of 500-symbol batches. Fetch them
-    # concurrently so the first live scan is much faster.
     workers = min(8, max(1, len(batches)))
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futures = [ex.submit(_fetch_quote_batch, i, batch)
-                   for i, batch in enumerate(batches, 1)]
-        for f in as_completed(futures):
+    ex = ThreadPoolExecutor(max_workers=workers)
+    futures = [ex.submit(_fetch_quote_batch, i, batch)
+               for i, batch in enumerate(batches, 1)]
+
+    try:
+        # Do not wait indefinitely for a bad network/API request.
+        for f in as_completed(futures, timeout=8):
             n, quotes, error = f.result()
             if error:
                 log(f"Live batch {n} ERROR: {error}")
@@ -407,9 +409,17 @@ def fetch_live_quotes():
             all_quotes.extend(quotes)
             ok_batches += 1
             log(f"Live batch {n}: {len(quotes)} quotes received.")
+    except TimeoutError:
+        log(f"LIVE QUOTE TIMEOUT: {ok_batches}/{len(batches)} batches completed within 8 seconds.")
+    finally:
+        # Do not block the request waiting for unfinished workers. Individual
+        # requests also have a 3s connect / 5s read timeout.
+        ex.shutdown(wait=False, cancel_futures=True)
+
+    log(f"LIVE QUOTE DONE: {len(all_quotes)} quotes from {ok_batches}/{len(batches)} batches")
 
     if ok_batches == 0:
-        raise RuntimeError("Upstox live market quote API failed for every batch. Check Render logs.")
+        raise RuntimeError("Upstox live market quote API returned no usable batches. Check Render logs.")
 
     return all_quotes
 
