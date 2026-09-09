@@ -357,42 +357,56 @@ def preopen_results(limit=100):
 # EXISTING OPEN-LOW STRENGTH SCANNER
 # ------------------------------------------------------------
 
+def _fetch_quote_batch(batch_no, batch):
+    keys = ",".join(x["instrument_key"] for x in batch)
+    try:
+        # One independent request per worker keeps the live scan parallel and
+        # avoids waiting for one slow 500-symbol batch before starting the next.
+        r = requests.get(
+            BASE + "/v3/market-quote/quotes",
+            headers=headers(),
+            params={"instrument_key": keys},
+            timeout=15,
+    )
+        if r.status_code != 200:
+            return batch_no, [], f"HTTP {r.status_code}: {r.text[:250]}"
+
+        data = r.json().get("data", {})
+        if not isinstance(data, dict):
+            return batch_no, [], "Invalid data object"
+
+        out = []
+        for response_key, q in data.items():
+            if not isinstance(q, dict):
+                continue
+            key = q.get("instrument_token") or response_key
+            q["_instrument_key"] = key
+            out.append(q)
+        return batch_no, out, None
+    except Exception as e:
+        return batch_no, [], repr(e)
+
+
 def fetch_live_quotes():
     load_instruments()
+    batches = list(chunks(INSTRUMENTS, BATCH_SIZE))
     all_quotes = []
     ok_batches = 0
 
-    for n, batch in enumerate(chunks(INSTRUMENTS, BATCH_SIZE), 1):
-        keys = ",".join(x["instrument_key"] for x in batch)
-        try:
-            r = http.get(
-                BASE + "/v3/market-quote/quotes",
-                headers=headers(),
-                params={"instrument_key": keys},
-                timeout=30,
-            )
-            if r.status_code != 200:
-                log(f"Live batch {n} HTTP {r.status_code}: {r.text[:400]}")
+    # NSE EQ is normally only a handful of 500-symbol batches. Fetch them
+    # concurrently so the first live scan is much faster.
+    workers = min(8, max(1, len(batches)))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(_fetch_quote_batch, i, batch)
+                   for i, batch in enumerate(batches, 1)]
+        for f in as_completed(futures):
+            n, quotes, error = f.result()
+            if error:
+                log(f"Live batch {n} ERROR: {error}")
                 continue
-
-            data = r.json().get("data", {})
-            if not isinstance(data, dict):
-                continue
-
-            got = 0
-            for response_key, q in data.items():
-                if not isinstance(q, dict):
-                    continue
-                key = q.get("instrument_token") or response_key
-                q["_instrument_key"] = key
-                all_quotes.append(q)
-                got += 1
-
+            all_quotes.extend(quotes)
             ok_batches += 1
-            log(f"Live batch {n}: {got} quotes received.")
-
-        except Exception as e:
-            log(f"Live batch {n} ERROR: {repr(e)}")
+            log(f"Live batch {n}: {len(quotes)} quotes received.")
 
     if ok_batches == 0:
         raise RuntimeError("Upstox live market quote API failed for every batch. Check Render logs.")
@@ -757,6 +771,8 @@ def preopen_api():
 
 @app.get("/api/scan")
 def scan():
+    global LIVE_RESULTS
+
     if session_mode() == "preopen":
         return jsonify({
             "mode": "preopen",
