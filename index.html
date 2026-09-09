@@ -114,7 +114,7 @@ button:disabled{
 
 table{
     width:100%;
-    min-width:1150px;
+    min-width:0;
     border-collapse:collapse;
 }
 
@@ -171,19 +171,94 @@ td{
 @media(max-width:700px){
 
     body{
-        padding:7px;
+        padding:5px;
+    }
+
+    .card{
+        padding:9px;
+        border-radius:12px;
     }
 
     h1{
-        font-size:22px;
+        font-size:20px;
+    }
+
+    .sub{
+        font-size:13px;
     }
 
     .filters{
         grid-template-columns:1fr 1fr;
+        gap:6px;
     }
 
     .filter{
-        padding:9px;
+        padding:7px;
+    }
+
+    .fv{
+        font-size:14px;
+    }
+
+    .table-wrap{
+        overflow-x:hidden;
+    }
+
+    table{
+        table-layout:fixed;
+        width:100%;
+        font-size:12px;
+    }
+
+    th,td{
+        padding:8px 4px;
+        text-align:center;
+        white-space:nowrap;
+    }
+
+    th:nth-child(1),td:nth-child(1){
+        width:10%;
+    }
+
+    th:nth-child(2),td:nth-child(2){
+        width:27%;
+        text-align:left;
+    }
+
+    th:nth-child(3),td:nth-child(3){
+        width:17%;
+    }
+
+    th:nth-child(4),td:nth-child(4){
+        width:15%;
+    }
+
+    th:nth-child(5),td:nth-child(5){
+        width:15%;
+    }
+
+    th:nth-child(6),td:nth-child(6){
+        width:16%;
+    }
+
+    .desktopOnly{
+        display:none !important;
+    }
+
+    .symbol{
+        font-size:13px;
+    }
+
+    .strength{
+        font-size:14px;
+    }
+
+    .gap{
+        font-size:12px;
+    }
+
+    #resultsTitle{
+        font-size:19px;
     }
 }
 </style>
@@ -272,11 +347,11 @@ Results: 0
 
 <th>Strength</th>
 
-<th>LTP</th>
+<th class="desktopOnly">LTP</th>
 
-<th>Open</th>
+<th class="desktopOnly">Open</th>
 
-<th>Low</th>
+<th class="desktopOnly">Low</th>
 
 <th>Gap</th>
 
@@ -284,9 +359,9 @@ Results: 0
 
 <th>Gain</th>
 
-<th>Avg 20D Turnover</th>
+<th class="desktopOnly">Avg 20D Turnover</th>
 
-<th>Live Turnover</th>
+<th class="desktopOnly">Live Turnover</th>
 
 </tr>
 
@@ -419,57 +494,38 @@ function updateScreen(data){
         return;
     }
 
-
     const status =
         document.getElementById("status");
 
-
     if(data.error){
-
         status.textContent =
             "Scanner में समस्या";
-
     }
     else if(data.running){
-
         status.textContent =
             "Scanner चल रहा है...";
-
     }
     else if(data.finished){
-
         status.textContent =
             "Scanner पूरा हो गया";
-
     }
     else{
-
         status.textContent =
             "Scanner तैयार है";
-
     }
-
 
     const progress =
         document.getElementById("progress");
 
-
     if(data.running){
-
         progress.style.width = "70%";
-
     }
     else if(data.finished){
-
         progress.style.width = "100%";
-
     }
     else{
-
         progress.style.width = "0%";
-
     }
-
 
     document.getElementById(
         "progressText"
@@ -484,10 +540,8 @@ function updateScreen(data){
             (data.updated_at || "-")
         );
 
-
     const errorBox =
         document.getElementById("errorBox");
-
 
     if(
         data.message &&
@@ -496,37 +550,28 @@ function updateScreen(data){
             data.message.toLowerCase().includes("missing")
         )
     ){
-
         errorBox.style.display = "block";
-
         errorBox.textContent =
             data.message;
-
     }
     else{
-
         errorBox.style.display = "none";
-
     }
-
 
     const results =
         Array.isArray(data.results)
         ? data.results
         : [];
 
-
     document.getElementById(
         "resultsTitle"
     ).textContent =
         "Results: " + results.length;
 
-
     const body =
         document.getElementById(
             "resultsBody"
         );
-
 
     if(!results.length){
 
@@ -544,7 +589,6 @@ function updateScreen(data){
         return;
     }
 
-
     body.innerHTML =
         results.map(
             (r,i) => `
@@ -561,15 +605,15 @@ ${r.symbol || "-"}
 ${nf(r.strength,1)}
 </td>
 
-<td>
+<td class="desktopOnly">
 ₹${nf(r.price,2)}
 </td>
 
-<td>
+<td class="desktopOnly">
 ₹${nf(r.open,2)}
 </td>
 
-<td>
+<td class="desktopOnly">
 ₹${nf(r.low,2)}
 </td>
 
@@ -585,11 +629,11 @@ ${nf(r.recovery,2)}%
 ${nf(r.gain,2)}%
 </td>
 
-<td>
+<td class="desktopOnly">
 ${crore(r.avg_turnover_cr)}
 </td>
 
-<td>
+<td class="desktopOnly">
 ${crore(r.live_turnover_cr)}
 </td>
 
@@ -613,13 +657,10 @@ async function getScanStatus(){
                 }
             );
 
-
         const data =
             await response.json();
 
-
         updateScreen(data);
-
 
         return data;
 
@@ -631,20 +672,15 @@ async function getScanStatus(){
                 "errorBox"
             );
 
-
         box.style.display =
             "block";
-
 
         box.textContent =
             "Server से data नहीं मिल रहा: " +
             error.message;
 
-
         return null;
-
     }
-
 }
 
 
@@ -655,12 +691,10 @@ async function scanNow(){
             "scanButton"
         );
 
-
     button.disabled = true;
 
     button.textContent =
         "Scanning...";
-
 
     try{
 
@@ -672,22 +706,14 @@ async function scanNow(){
                 }
             );
 
-
         const data =
             await response.json();
 
-
         updateScreen(data);
 
-
         if(polling){
-
-            clearInterval(
-                polling
-            );
-
+            clearInterval(polling);
         }
-
 
         polling =
             setInterval(
@@ -695,7 +721,6 @@ async function scanNow(){
 
                     const current =
                         await getScanStatus();
-
 
                     if(
                         current &&
@@ -714,7 +739,6 @@ async function scanNow(){
 
                         button.textContent =
                             "Scan Now";
-
                     }
 
                 },
@@ -729,23 +753,18 @@ async function scanNow(){
                 "errorBox"
             );
 
-
         box.style.display =
             "block";
 
-
         box.textContent =
             error.message;
-
 
         button.disabled =
             false;
 
         button.textContent =
             "Scan Now";
-
     }
-
 }
 
 
@@ -753,7 +772,6 @@ async function initialLoad(){
 
     const data =
         await getScanStatus();
-
 
     if(
         data &&
@@ -766,7 +784,6 @@ async function initialLoad(){
 
                     const current =
                         await getScanStatus();
-
 
                     if(
                         current &&
@@ -788,15 +805,12 @@ async function initialLoad(){
                             "scanButton"
                         ).textContent =
                             "Scan Now";
-
                     }
 
                 },
                 2000
             );
-
     }
-
 }
 
 
