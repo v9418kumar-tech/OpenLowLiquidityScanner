@@ -6,6 +6,7 @@
 <title>Open-Low Strength Scanner</title>
 
 <style>
+
 *{
     box-sizing:border-box;
 }
@@ -113,14 +114,14 @@ button:disabled{
 
 table{
     width:100%;
-    min-width:950px;
+    min-width:1050px;
     border-collapse:collapse;
 }
 
 th{
     background:#242b35;
     color:#aeb8c5;
-    text-align:left;
+    text-align:center;
     padding:9px;
     white-space:nowrap;
     position:sticky;
@@ -131,11 +132,13 @@ td{
     padding:9px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
+    text-align:center;
 }
 
 .symbol{
     font-weight:bold;
     font-size:16px;
+    text-align:left;
 }
 
 .strength{
@@ -144,6 +147,10 @@ td{
 }
 
 .gap{
+    font-weight:bold;
+}
+
+.ratio{
     font-weight:bold;
 }
 
@@ -169,7 +176,7 @@ td{
 
 
 /* =========================
-   MOBILE COMPACT TABLE
+   MOBILE
    ========================= */
 
 @media(max-width:700px){
@@ -209,23 +216,16 @@ td{
         -webkit-overflow-scrolling:touch;
     }
 
-    /*
-       पहले table 980px की थी।
-       अब 720px रखी गई है ताकि columns
-       mobile पर ज्यादा पास दिखाई दें।
-    */
-
     table{
         table-layout:fixed;
-        min-width:720px;
-        width:720px;
+        min-width:762px;
+        width:762px;
         font-size:11px;
     }
 
     th,
     td{
         padding:6px 2px;
-        text-align:center;
         white-space:nowrap;
         overflow:hidden;
         text-overflow:clip;
@@ -240,14 +240,14 @@ td{
     /* Share */
     th:nth-child(2),
     td:nth-child(2){
-        width:100px;
+        width:95px;
         text-align:left;
     }
 
     /* Strength */
     th:nth-child(3),
     td:nth-child(3){
-        width:70px;
+        width:65px;
     }
 
     /* LTP */
@@ -265,25 +265,31 @@ td{
     /* Recovery */
     th:nth-child(6),
     td:nth-child(6){
-        width:80px;
+        width:75px;
     }
 
     /* Gain */
     th:nth-child(7),
     td:nth-child(7){
-        width:65px;
+        width:60px;
     }
 
     /* Average 20D Turnover */
     th:nth-child(8),
     td:nth-child(8){
-        width:105px;
+        width:100px;
     }
 
     /* Live Turnover */
     th:nth-child(9),
     td:nth-child(9){
-        width:105px;
+        width:100px;
+    }
+
+    /* Turnover Ratio */
+    th:nth-child(10),
+    td:nth-child(10){
+        width:80px;
     }
 
     .symbol{
@@ -295,6 +301,10 @@ td{
     }
 
     .gap{
+        font-size:11px;
+    }
+
+    .ratio{
         font-size:11px;
     }
 
@@ -312,6 +322,8 @@ td{
 <div class="container">
 
 
+<!-- HEADER -->
+
 <div class="card">
 
 <h1>Open-Low Strength Scanner</h1>
@@ -323,6 +335,7 @@ NSE EQ • Fast Live Scan • Strongest Share First
 </div>
 
 
+<!-- SCANNER STATUS -->
 
 <div class="card">
 
@@ -347,6 +360,7 @@ Scan Now
 </div>
 
 
+<!-- FILTERS -->
 
 <div class="filters">
 
@@ -373,6 +387,7 @@ Scan Now
 </div>
 
 
+<!-- RESULTS -->
 
 <div class="card" style="margin-top:12px">
 
@@ -406,6 +421,8 @@ Results: 0
 
 <th>Live Turnover</th>
 
+<th>Turnover Ratio</th>
+
 </tr>
 
 </thead>
@@ -415,7 +432,7 @@ Results: 0
 
 <tr>
 
-<td colspan="9" class="empty">
+<td colspan="10" class="empty">
 अभी scan शुरू नहीं हुआ है।
 </td>
 
@@ -430,6 +447,7 @@ Results: 0
 </div>
 
 
+<!-- LOGIC -->
 
 <div class="card logic">
 
@@ -486,6 +504,32 @@ Ranking Logic
 <br>
 
 <div>
+<b>Turnover Ratio</b>
+</div>
+
+<div>
+• Live Turnover ÷ Avg 20D Turnover
+</div>
+
+<div>
+• 1× = सामान्य activity
+</div>
+
+<div>
+• 2× = सामान्य से 2 गुना activity
+</div>
+
+<div>
+• 3× = सामान्य से 3 गुना activity
+</div>
+
+<div>
+• 5×+ = बहुत तेज activity
+</div>
+
+<br>
+
+<div>
 <b>Rank 1 = सबसे मजबूत qualifying share</b>
 </div>
 
@@ -495,12 +539,14 @@ Ranking Logic
 </div>
 
 
-
 <script>
 
 let polling = null;
 
 
+/* =========================
+   NUMBER FORMAT
+   ========================= */
 
 function nf(value, decimals = 2){
 
@@ -522,6 +568,9 @@ function nf(value, decimals = 2){
 }
 
 
+/* =========================
+   CRORE FORMAT
+   ========================= */
 
 function crore(value){
 
@@ -537,6 +586,34 @@ function crore(value){
 }
 
 
+/* =========================
+   TURNOVER RATIO
+   ========================= */
+
+function turnoverRatio(live, avg){
+
+    if(
+        live === null ||
+        live === undefined ||
+        avg === null ||
+        avg === undefined ||
+        isNaN(live) ||
+        isNaN(avg) ||
+        Number(avg) <= 0
+    ){
+        return "-";
+    }
+
+    return (
+        Number(live) /
+        Number(avg)
+    ).toFixed(2) + "×";
+}
+
+
+/* =========================
+   UPDATE SCREEN
+   ========================= */
 
 function updateScreen(data){
 
@@ -578,7 +655,6 @@ function updateScreen(data){
     }
 
 
-
     const progress =
         document.getElementById("progress");
 
@@ -602,7 +678,6 @@ function updateScreen(data){
     }
 
 
-
     document.getElementById(
         "progressText"
     ).textContent = data.running
@@ -617,7 +692,6 @@ function updateScreen(data){
         );
 
 
-
     const errorBox =
         document.getElementById("errorBox");
 
@@ -630,7 +704,8 @@ function updateScreen(data){
         )
     ){
 
-        errorBox.style.display = "block";
+        errorBox.style.display =
+            "block";
 
         errorBox.textContent =
             data.message;
@@ -639,10 +714,10 @@ function updateScreen(data){
 
     else{
 
-        errorBox.style.display = "none";
+        errorBox.style.display =
+            "none";
 
     }
-
 
 
     const results =
@@ -657,19 +732,17 @@ function updateScreen(data){
         "Results: " + results.length;
 
 
-
     const body =
         document.getElementById(
             "resultsBody"
         );
 
 
-
     if(!results.length){
 
         body.innerHTML =
             '<tr>' +
-            '<td colspan="9" class="empty">' +
+            '<td colspan="10" class="empty">' +
             (
                 data.running
                 ? "Share check हो रहा है, कृपया प्रतीक्षा करें..."
@@ -681,7 +754,6 @@ function updateScreen(data){
         return;
 
     }
-
 
 
     body.innerHTML =
@@ -735,6 +807,14 @@ ${crore(r.live_turnover_cr)}
 </td>
 
 
+<td class="ratio">
+${turnoverRatio(
+    r.live_turnover_cr,
+    r.avg_turnover_cr
+)}
+</td>
+
+
 </tr>
 
 `
@@ -743,6 +823,9 @@ ${crore(r.live_turnover_cr)}
 }
 
 
+/* =========================
+   GET SCAN STATUS
+   ========================= */
 
 async function getScanStatus(){
 
@@ -792,6 +875,9 @@ async function getScanStatus(){
 }
 
 
+/* =========================
+   SCAN NOW
+   ========================= */
 
 async function scanNow(){
 
@@ -826,13 +912,11 @@ async function scanNow(){
         updateScreen(data);
 
 
-
         if(polling){
 
             clearInterval(polling);
 
         }
-
 
 
         polling =
@@ -901,6 +985,9 @@ async function scanNow(){
 }
 
 
+/* =========================
+   INITIAL LOAD
+   ========================= */
 
 async function initialLoad(){
 
@@ -953,7 +1040,6 @@ async function initialLoad(){
     }
 
 }
-
 
 
 initialLoad();
