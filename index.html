@@ -167,6 +167,11 @@ td{
     line-height:1.6;
 }
 
+
+/* =========================
+   MOBILE COMPACT TABLE
+   ========================= */
+
 @media(max-width:700px){
 
     body{
@@ -201,80 +206,111 @@ td{
 
     .table-wrap{
         overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
     }
+
+    /*
+       पहले table 980px की थी।
+       अब 720px रखी गई है ताकि columns
+       mobile पर ज्यादा पास दिखाई दें।
+    */
 
     table{
         table-layout:fixed;
-        min-width:980px;
-        width:980px;
-        font-size:12px;
+        min-width:720px;
+        width:720px;
+        font-size:11px;
     }
 
-    th,td{
-        padding:8px 4px;
+    th,
+    td{
+        padding:6px 2px;
         text-align:center;
         white-space:nowrap;
+        overflow:hidden;
+        text-overflow:clip;
     }
 
-    th:nth-child(1),td:nth-child(1){
-        width:70px;
+    /* Rank */
+    th:nth-child(1),
+    td:nth-child(1){
+        width:42px;
     }
 
-    th:nth-child(2),td:nth-child(2){
-        width:170px;
+    /* Share */
+    th:nth-child(2),
+    td:nth-child(2){
+        width:100px;
         text-align:left;
     }
 
-    th:nth-child(3),td:nth-child(3){
-        width:110px;
+    /* Strength */
+    th:nth-child(3),
+    td:nth-child(3){
+        width:70px;
     }
 
-    th:nth-child(4),td:nth-child(4){
-        width:110px;
+    /* LTP */
+    th:nth-child(4),
+    td:nth-child(4){
+        width:75px;
     }
 
-    th:nth-child(5),td:nth-child(5){
-        width:110px;
+    /* Gap */
+    th:nth-child(5),
+    td:nth-child(5){
+        width:70px;
     }
 
-    th:nth-child(6),td:nth-child(6){
-        width:110px;
+    /* Recovery */
+    th:nth-child(6),
+    td:nth-child(6){
+        width:80px;
     }
 
-    th:nth-child(7),td:nth-child(7){
-        width:110px;
+    /* Gain */
+    th:nth-child(7),
+    td:nth-child(7){
+        width:65px;
     }
 
-    th:nth-child(8),td:nth-child(8){
-        width:130px;
+    /* Average 20D Turnover */
+    th:nth-child(8),
+    td:nth-child(8){
+        width:105px;
     }
 
-    th:nth-child(9),td:nth-child(9){
-        width:130px;
+    /* Live Turnover */
+    th:nth-child(9),
+    td:nth-child(9){
+        width:105px;
     }
 
     .symbol{
-        font-size:13px;
+        font-size:12px;
     }
 
     .strength{
-        font-size:14px;
+        font-size:13px;
     }
 
     .gap{
-        font-size:12px;
+        font-size:11px;
     }
 
     #resultsTitle{
         font-size:19px;
     }
 }
+
 </style>
 </head>
+
 
 <body>
 
 <div class="container">
+
 
 <div class="card">
 
@@ -285,6 +321,7 @@ NSE EQ • Fast Live Scan • Strongest Share First
 </div>
 
 </div>
+
 
 
 <div class="card">
@@ -310,6 +347,7 @@ Scan Now
 </div>
 
 
+
 <div class="filters">
 
 <div class="filter">
@@ -333,6 +371,7 @@ Scan Now
 </div>
 
 </div>
+
 
 
 <div class="card" style="margin-top:12px">
@@ -389,6 +428,7 @@ Results: 0
 </div>
 
 </div>
+
 
 
 <div class="card logic">
@@ -451,12 +491,15 @@ Ranking Logic
 
 </div>
 
+
 </div>
+
 
 
 <script>
 
 let polling = null;
+
 
 
 function nf(value, decimals = 2){
@@ -479,6 +522,7 @@ function nf(value, decimals = 2){
 }
 
 
+
 function crore(value){
 
     if(
@@ -491,6 +535,7 @@ function crore(value){
 
     return nf(value,2) + " Cr";
 }
+
 
 
 function updateScreen(data){
@@ -533,6 +578,7 @@ function updateScreen(data){
     }
 
 
+
     const progress =
         document.getElementById("progress");
 
@@ -556,6 +602,7 @@ function updateScreen(data){
     }
 
 
+
     document.getElementById(
         "progressText"
     ).textContent = data.running
@@ -568,6 +615,7 @@ function updateScreen(data){
             " | Last update: " +
             (data.updated_at || "-")
         );
+
 
 
     const errorBox =
@@ -596,6 +644,7 @@ function updateScreen(data){
     }
 
 
+
     const results =
         Array.isArray(data.results)
         ? data.results
@@ -608,10 +657,12 @@ function updateScreen(data){
         "Results: " + results.length;
 
 
+
     const body =
         document.getElementById(
             "resultsBody"
         );
+
 
 
     if(!results.length){
@@ -628,7 +679,9 @@ function updateScreen(data){
             '</tr>';
 
         return;
+
     }
+
 
 
     body.innerHTML =
@@ -690,6 +743,7 @@ ${crore(r.live_turnover_cr)}
 }
 
 
+
 async function getScanStatus(){
 
     try{
@@ -738,6 +792,7 @@ async function getScanStatus(){
 }
 
 
+
 async function scanNow(){
 
     const button =
@@ -771,11 +826,13 @@ async function scanNow(){
         updateScreen(data);
 
 
+
         if(polling){
 
             clearInterval(polling);
 
         }
+
 
 
         polling =
@@ -844,6 +901,7 @@ async function scanNow(){
 }
 
 
+
 async function initialLoad(){
 
     const data =
@@ -873,7 +931,6 @@ async function initialLoad(){
                             polling
                         );
 
-
                         polling = null;
 
 
@@ -896,6 +953,7 @@ async function initialLoad(){
     }
 
 }
+
 
 
 initialLoad();
