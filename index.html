@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Open-Low Strength Scanner</title>
 
 <style>
@@ -110,35 +111,35 @@ button:disabled{
 
 .table-wrap{
     overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
 }
 
 table{
     width:100%;
-    min-width:1050px;
+    min-width:950px;
     border-collapse:collapse;
 }
 
 th{
     background:#242b35;
     color:#aeb8c5;
-    text-align:center;
+    text-align:left;
     padding:9px;
     white-space:nowrap;
     position:sticky;
     top:0;
+    z-index:2;
 }
 
 td{
     padding:9px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
-    text-align:center;
 }
 
 .symbol{
     font-weight:bold;
     font-size:16px;
-    text-align:left;
 }
 
 .strength{
@@ -147,10 +148,6 @@ td{
 }
 
 .gap{
-    font-weight:bold;
-}
-
-.ratio{
     font-weight:bold;
 }
 
@@ -174,10 +171,35 @@ td{
     line-height:1.6;
 }
 
+/* =========================================
+   YELLOW STRONG SHARE
+   ========================================= */
 
-/* =========================
-   MOBILE
-   ========================= */
+.strong-row td{
+    background:#fff3a6;
+    color:#111111;
+    border-bottom:1px solid #d6c85a;
+}
+
+.strong-row .symbol{
+    color:#000000;
+    font-weight:900;
+}
+
+.strong-row .strength{
+    color:#000000;
+    font-weight:900;
+}
+
+.strong-row .gap{
+    color:#000000;
+    font-weight:900;
+}
+
+
+/* =========================================
+   MOBILE COMPACT TABLE
+   ========================================= */
 
 @media(max-width:700px){
 
@@ -211,11 +233,6 @@ td{
         font-size:14px;
     }
 
-    .table-wrap{
-        overflow-x:auto;
-        -webkit-overflow-scrolling:touch;
-    }
-
     table{
         table-layout:fixed;
         min-width:762px;
@@ -226,6 +243,7 @@ td{
     th,
     td{
         padding:6px 2px;
+        text-align:center;
         white-space:nowrap;
         overflow:hidden;
         text-overflow:clip;
@@ -240,14 +258,14 @@ td{
     /* Share */
     th:nth-child(2),
     td:nth-child(2){
-        width:95px;
+        width:100px;
         text-align:left;
     }
 
     /* Strength */
     th:nth-child(3),
     td:nth-child(3){
-        width:65px;
+        width:70px;
     }
 
     /* LTP */
@@ -265,31 +283,31 @@ td{
     /* Recovery */
     th:nth-child(6),
     td:nth-child(6){
-        width:75px;
+        width:80px;
     }
 
     /* Gain */
     th:nth-child(7),
     td:nth-child(7){
-        width:60px;
+        width:65px;
     }
 
     /* Average 20D Turnover */
     th:nth-child(8),
     td:nth-child(8){
-        width:100px;
+        width:105px;
     }
 
     /* Live Turnover */
     th:nth-child(9),
     td:nth-child(9){
-        width:100px;
+        width:105px;
     }
 
     /* Turnover Ratio */
     th:nth-child(10),
     td:nth-child(10){
-        width:80px;
+        width:90px;
     }
 
     .symbol{
@@ -304,13 +322,10 @@ td{
         font-size:11px;
     }
 
-    .ratio{
-        font-size:11px;
-    }
-
     #resultsTitle{
         font-size:19px;
     }
+
 }
 
 </style>
@@ -320,9 +335,6 @@ td{
 <body>
 
 <div class="container">
-
-
-<!-- HEADER -->
 
 <div class="card">
 
@@ -334,8 +346,6 @@ NSE EQ • Fast Live Scan • Strongest Share First
 
 </div>
 
-
-<!-- SCANNER STATUS -->
 
 <div class="card">
 
@@ -359,8 +369,6 @@ Scan Now
 
 </div>
 
-
-<!-- FILTERS -->
 
 <div class="filters">
 
@@ -386,8 +394,6 @@ Scan Now
 
 </div>
 
-
-<!-- RESULTS -->
 
 <div class="card" style="margin-top:12px">
 
@@ -447,8 +453,6 @@ Results: 0
 </div>
 
 
-<!-- LOGIC -->
-
 <div class="card logic">
 
 <h3 style="margin-top:0">
@@ -504,37 +508,36 @@ Ranking Logic
 <br>
 
 <div>
-<b>Turnover Ratio</b>
+<b>🟨 Yellow Strong Share Rule</b>
 </div>
 
 <div>
-• Live Turnover ÷ Avg 20D Turnover
+• Strength ≥ 84
 </div>
 
 <div>
-• 1× = सामान्य activity
+• Gain ≥ 3%
 </div>
 
 <div>
-• 2× = सामान्य से 2 गुना activity
+• Recovery ≥ 1.5%
 </div>
 
 <div>
-• 3× = सामान्य से 3 गुना activity
+• Turnover Ratio ≥ 2.5×
 </div>
 
 <div>
-• 5×+ = बहुत तेज activity
+• Open-Low Gap ≤ 0.15%
 </div>
 
 <br>
 
 <div>
-<b>Rank 1 = सबसे मजबूत qualifying share</b>
+<b>🟨 सभी 5 conditions पूरी = पूरी row Yellow</b>
 </div>
 
 </div>
-
 
 </div>
 
@@ -544,9 +547,9 @@ Ranking Logic
 let polling = null;
 
 
-/* =========================
+/* =========================================
    NUMBER FORMAT
-   ========================= */
+   ========================================= */
 
 function nf(value, decimals = 2){
 
@@ -568,9 +571,9 @@ function nf(value, decimals = 2){
 }
 
 
-/* =========================
+/* =========================================
    CRORE FORMAT
-   ========================= */
+   ========================================= */
 
 function crore(value){
 
@@ -586,34 +589,64 @@ function crore(value){
 }
 
 
-/* =========================
+/* =========================================
    TURNOVER RATIO
-   ========================= */
+   ========================================= */
 
 function turnoverRatio(live, avg){
 
+    live = Number(live || 0);
+    avg = Number(avg || 0);
+
     if(
-        live === null ||
-        live === undefined ||
-        avg === null ||
-        avg === undefined ||
-        isNaN(live) ||
-        isNaN(avg) ||
-        Number(avg) <= 0
+        !isFinite(live) ||
+        !isFinite(avg) ||
+        avg <= 0
     ){
-        return "-";
+        return 0;
     }
 
-    return (
-        Number(live) /
-        Number(avg)
-    ).toFixed(2) + "×";
+    return live / avg;
 }
 
 
-/* =========================
+/* =========================================
+   YELLOW STRONG RULE
+   ========================================= */
+
+function isStrongShare(r){
+
+    const strength =
+        Number(r.strength || 0);
+
+    const gain =
+        Number(r.gain || 0);
+
+    const recovery =
+        Number(r.recovery || 0);
+
+    const gap =
+        Number(r.gap || 0);
+
+    const ratio =
+        turnoverRatio(
+            r.live_turnover_cr,
+            r.avg_turnover_cr
+        );
+
+    return (
+        strength >= 84 &&
+        gain >= 3 &&
+        recovery >= 1.5 &&
+        ratio >= 2.5 &&
+        gap <= 0.15
+    );
+}
+
+
+/* =========================================
    UPDATE SCREEN
-   ========================= */
+   ========================================= */
 
 function updateScreen(data){
 
@@ -745,7 +778,9 @@ function updateScreen(data){
             '<td colspan="10" class="empty">' +
             (
                 data.running
+
                 ? "Share check हो रहा है, कृपया प्रतीक्षा करें..."
+
                 : "अभी कोई share सभी conditions पास नहीं कर रहा है।"
             ) +
             '</td>' +
@@ -758,74 +793,73 @@ function updateScreen(data){
 
     body.innerHTML =
         results.map(
-            (r,i) => `
+            (r,i) => {
 
-<tr>
+                const ratio =
+                    turnoverRatio(
+                        r.live_turnover_cr,
+                        r.avg_turnover_cr
+                    );
+
+                const strong =
+                    isStrongShare(r);
+
+                return `
+
+<tr class="${strong ? "strong-row" : ""}">
 
 <td>
 ${i + 1}
 </td>
 
-
 <td class="symbol">
 ${r.symbol || "-"}
 </td>
-
 
 <td class="strength">
 ${nf(r.strength,1)}
 </td>
 
-
 <td>
 ₹${nf(r.price,2)}
 </td>
-
 
 <td class="gap">
 ${nf(r.gap,4)}%
 </td>
 
-
 <td>
 ${nf(r.recovery,2)}%
 </td>
-
 
 <td>
 ${nf(r.gain,2)}%
 </td>
 
-
 <td>
 ${crore(r.avg_turnover_cr)}
 </td>
-
 
 <td>
 ${crore(r.live_turnover_cr)}
 </td>
 
-
-<td class="ratio">
-${turnoverRatio(
-    r.live_turnover_cr,
-    r.avg_turnover_cr
-)}
+<td>
+${nf(ratio,2)}×
 </td>
-
 
 </tr>
 
-`
+`;
+            }
         ).join("");
 
 }
 
 
-/* =========================
+/* =========================================
    GET SCAN STATUS
-   ========================= */
+   ========================================= */
 
 async function getScanStatus(){
 
@@ -875,9 +909,9 @@ async function getScanStatus(){
 }
 
 
-/* =========================
+/* =========================================
    SCAN NOW
-   ========================= */
+   ========================================= */
 
 async function scanNow(){
 
@@ -914,7 +948,9 @@ async function scanNow(){
 
         if(polling){
 
-            clearInterval(polling);
+            clearInterval(
+                polling
+            );
 
         }
 
@@ -985,9 +1021,9 @@ async function scanNow(){
 }
 
 
-/* =========================
+/* =========================================
    INITIAL LOAD
-   ========================= */
+   ========================================= */
 
 async function initialLoad(){
 
