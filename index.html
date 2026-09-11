@@ -27,37 +27,37 @@ body{
 .card{
     background:#1b2027;
     border:1px solid #2d3540;
-    border-radius:18px;
+    border-radius:16px;
     padding:12px;
     margin-bottom:12px;
 }
 
 h1{
     margin:0;
-    font-size:27px;
+    font-size:25px;
 }
 
 .sub{
     color:#aeb8c5;
-    margin-top:7px;
+    margin-top:6px;
 }
 
 .status{
     background:#242b35;
-    border-radius:13px;
-    padding:12px;
-    font-size:18px;
+    border-radius:11px;
+    padding:11px;
+    font-size:17px;
     font-weight:bold;
 }
 
 button{
-    margin-top:12px;
+    margin-top:11px;
     background:#2f6df6;
     color:#fff;
     border:0;
-    border-radius:12px;
-    padding:13px 22px;
-    font-size:18px;
+    border-radius:11px;
+    padding:12px 20px;
+    font-size:17px;
     font-weight:bold;
 }
 
@@ -66,10 +66,10 @@ button:disabled{
 }
 
 .progress-wrap{
-    margin-top:12px;
+    margin-top:11px;
     background:#2a313b;
-    border-radius:10px;
-    height:12px;
+    border-radius:9px;
+    height:10px;
     overflow:hidden;
 }
 
@@ -80,7 +80,7 @@ button:disabled{
 }
 
 .info{
-    margin-top:9px;
+    margin-top:8px;
     color:#aeb8c5;
 }
 
@@ -93,119 +93,59 @@ button:disabled{
 .filter{
     background:#181d23;
     border:1px solid #29313b;
-    border-radius:13px;
-    padding:11px;
+    border-radius:11px;
+    padding:10px;
 }
 
 .ft{
-    font-size:13px;
+    font-size:12px;
     color:#8f9baa;
 }
 
 .fv{
-    font-size:18px;
+    font-size:17px;
     font-weight:bold;
-    margin-top:4px;
+    margin-top:3px;
 }
 
 .table-wrap{
     overflow-x:auto;
-    width:100%;
+    -webkit-overflow-scrolling:touch;
 }
 
 table{
     width:100%;
-    min-width:850px;
+    min-width:900px;
     border-collapse:collapse;
-    table-layout:fixed;
+    table-layout:auto;
 }
-
-/* =========================================================
-   COMPACT COLUMN WIDTHS
-   सभी 10 columns रखे गए हैं
-   केवल खाली space कम किया गया है
-   ========================================================= */
 
 th{
     background:#242b35;
     color:#aeb8c5;
     text-align:center;
-    padding:8px 3px;
+    padding:8px 4px;
     white-space:nowrap;
-    font-size:13px;
+    font-size:12px;
 }
 
 td{
-    padding:8px 3px;
+    padding:8px 4px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
     text-align:center;
     font-size:13px;
 }
 
-/* Column widths */
-
-th:nth-child(1),
-td:nth-child(1){
-    width:6%;
-}
-
-th:nth-child(2),
-td:nth-child(2){
-    width:14%;
-}
-
-th:nth-child(3),
-td:nth-child(3){
-    width:10%;
-}
-
-th:nth-child(4),
-td:nth-child(4){
-    width:10%;
-}
-
-th:nth-child(5),
-td:nth-child(5){
-    width:9%;
-}
-
-th:nth-child(6),
-td:nth-child(6){
-    width:9%;
-}
-
-th:nth-child(7),
-td:nth-child(7){
-    width:9%;
-}
-
-th:nth-child(8),
-td:nth-child(8){
-    width:13%;
-}
-
-th:nth-child(9),
-td:nth-child(9){
-    width:12%;
-}
-
-th:nth-child(10),
-td:nth-child(10){
-    width:8%;
-}
-
 .symbol{
     font-weight:bold;
-    font-size:15px;
+    font-size:14px;
     text-align:left;
-    overflow:hidden;
-    text-overflow:ellipsis;
 }
 
 .strength{
     font-weight:bold;
-    font-size:16px;
+    font-size:15px;
 }
 
 .gap{
@@ -213,29 +153,28 @@ td:nth-child(10){
 }
 
 .empty{
-    padding:20px;
+    padding:18px;
     color:#aeb8c5;
 }
 
 .error{
     display:none;
-    margin-top:10px;
+    margin-top:8px;
     background:#3a2025;
     border:1px solid #6b3039;
     color:#ffb7bf;
-    border-radius:10px;
-    padding:10px;
+    border-radius:9px;
+    padding:9px;
 }
 
 .logic{
     color:#c2cad4;
-    line-height:1.6;
+    line-height:1.5;
 }
 
 
 /* =========================================================
    BLUE STRONG SHARE ROW
-   सभी 5 conditions true होने पर पूरी row blue होगी
    ========================================================= */
 
 .strong-row td{
@@ -245,7 +184,7 @@ td:nth-child(10){
 }
 
 .strong-row .symbol{
-    color:#000000;
+    color:#ffffff;
     font-weight:900;
 }
 
@@ -267,12 +206,16 @@ td:nth-child(10){
     }
 
     h1{
-        font-size:23px;
+        font-size:22px;
+    }
+
+    .sub{
+        font-size:13px;
     }
 
     .card{
         padding:10px;
-        margin-bottom:10px;
+        border-radius:14px;
     }
 
     .filters{
@@ -284,24 +227,35 @@ td:nth-child(10){
         padding:9px;
     }
 
+    .ft{
+        font-size:11px;
+    }
+
+    .fv{
+        font-size:16px;
+    }
+
     .table-wrap{
         overflow-x:auto;
-        -webkit-overflow-scrolling:touch;
     }
 
     /*
        पहले 1120px था।
-       अब 850px किया गया है ताकि
-       horizontal movement कम हो।
+       अब 900px किया गया है ताकि
+       mobile पर table compact रहे।
     */
 
     table{
-        min-width:850px;
+        min-width:900px;
     }
 
-    th,
+    th{
+        padding:7px 3px;
+        font-size:11px;
+    }
+
     td{
-        padding:7px 2px;
+        padding:7px 3px;
         font-size:12px;
     }
 
@@ -314,38 +268,11 @@ td:nth-child(10){
     }
 
     .gap{
-        font-size:12px;
+        font-size:11px;
     }
 
     #resultsTitle{
         font-size:19px;
-    }
-
-}
-
-
-/* =========================================================
-   VERY SMALL MOBILE
-   ========================================================= */
-
-@media(max-width:430px){
-
-    table{
-        min-width:850px;
-    }
-
-    th,
-    td{
-        padding:7px 2px;
-        font-size:11px;
-    }
-
-    .symbol{
-        font-size:12px;
-    }
-
-    .strength{
-        font-size:13px;
     }
 
 }
@@ -359,6 +286,10 @@ td:nth-child(10){
 <div class="container">
 
 
+<!-- ======================================================
+     HEADER
+     ====================================================== -->
+
 <div class="card">
 
     <h1>Open-Low Strength Scanner</h1>
@@ -369,6 +300,10 @@ td:nth-child(10){
 
 </div>
 
+
+<!-- ======================================================
+     STATUS
+     ====================================================== -->
 
 <div class="card">
 
@@ -393,36 +328,76 @@ td:nth-child(10){
 </div>
 
 
+<!-- ======================================================
+     FILTERS
+     ====================================================== -->
+
 <div class="filters">
 
     <div class="filter">
-        <div class="ft">Price</div>
-        <div class="fv">&gt; ₹20</div>
+
+        <div class="ft">
+            Price
+        </div>
+
+        <div class="fv">
+            &gt; ₹20
+        </div>
+
     </div>
 
-    <div class="filter">
-        <div class="ft">Open-Low Gap</div>
-        <div class="fv">≤ 0.50%</div>
-    </div>
 
     <div class="filter">
-        <div class="ft">20D Liquidity</div>
-        <div class="fv">≥ ₹10 Cr</div>
+
+        <div class="ft">
+            Open-Low Gap
+        </div>
+
+        <div class="fv">
+            ≤ 0.50%
+        </div>
+
     </div>
 
+
     <div class="filter">
-        <div class="ft">Universe</div>
-        <div class="fv">NSE EQ Only</div>
+
+        <div class="ft">
+            20D Liquidity
+        </div>
+
+        <div class="fv">
+            ≥ ₹10 Cr
+        </div>
+
+    </div>
+
+
+    <div class="filter">
+
+        <div class="ft">
+            Universe
+        </div>
+
+        <div class="fv">
+            NSE EQ Only
+        </div>
+
     </div>
 
 </div>
 
+
+<!-- ======================================================
+     RESULTS
+     ====================================================== -->
 
 <div class="card" style="margin-top:12px">
 
     <h2 id="resultsTitle" style="margin-top:0">
         Results: 0
     </h2>
+
 
     <div class="table-wrap">
 
@@ -433,14 +408,23 @@ td:nth-child(10){
                 <tr>
 
                     <th>Rank</th>
+
                     <th>Share</th>
+
                     <th>Strength</th>
+
                     <th>LTP</th>
+
                     <th>Gap</th>
+
                     <th>Recovery</th>
+
                     <th>Gain</th>
+
                     <th>Avg 20D Turnover</th>
+
                     <th>Live Turnover</th>
+
                     <th>Turnover Ratio</th>
 
                 </tr>
@@ -467,11 +451,16 @@ td:nth-child(10){
 </div>
 
 
+<!-- ======================================================
+     LOGIC
+     ====================================================== -->
+
 <div class="card logic">
 
     <h3 style="margin-top:0">
         Ranking Logic
     </h3>
+
 
     <div>
         • Price &gt; ₹20
@@ -501,7 +490,9 @@ td:nth-child(10){
         • Rank 1 = सबसे मजबूत qualifying share
     </div>
 
+
     <br>
+
 
     <div>
         <b>🔵 Blue Strong Share Rule</b>
@@ -563,6 +554,7 @@ function nf(v,d=2){
             maximumFractionDigits:d
         }
     );
+
 }
 
 
@@ -581,6 +573,7 @@ function cr(v){
     }
 
     return nf(v,2)+" Cr";
+
 }
 
 
@@ -592,7 +585,9 @@ function cr(v){
 function turnoverRatio(live,avg){
 
     live = Number(live || 0);
+
     avg = Number(avg || 0);
+
 
     if(
         !isFinite(live) ||
@@ -602,7 +597,9 @@ function turnoverRatio(live,avg){
         return 0;
     }
 
+
     return live / avg;
+
 }
 
 
@@ -616,20 +613,25 @@ function isStrongShare(r){
     const strength =
         Number(r.strength || 0);
 
+
     const gain =
         Number(r.gain || 0);
+
 
     const recovery =
         Number(r.recovery || 0);
 
+
     const gap =
         Number(r.gap || 0);
+
 
     const ratio =
         turnoverRatio(
             r.live_turnover_cr,
             r.avg_turnover_cr
         );
+
 
     return (
 
@@ -644,6 +646,7 @@ function isStrongShare(r){
         gap <= 0.15
 
     );
+
 }
 
 
@@ -656,6 +659,7 @@ function renderResults(results){
     const body =
         document.getElementById("resultsBody");
 
+
     const title =
         document.getElementById("resultsTitle");
 
@@ -667,18 +671,27 @@ function renderResults(results){
     if(!results.length){
 
         body.innerHTML = `
+
             <tr>
+
                 <td colspan="10" class="empty">
-                    अभी कोई share सभी conditions पास नहीं कर रहा है।
+
+                    अभी कोई share सभी conditions
+                    पास नहीं कर रहा है।
+
                 </td>
+
             </tr>
+
         `;
 
         return;
+
     }
 
 
     body.innerHTML = results.map((r,i)=>{
+
 
         const ratio =
             turnoverRatio(
@@ -695,45 +708,56 @@ function renderResults(results){
 
         <tr class="${strong ? "strong-row" : ""}">
 
+
             <td>
                 ${i+1}
             </td>
+
 
             <td class="symbol">
                 ${r.symbol || "-"}
             </td>
 
+
             <td class="strength">
                 ${nf(r.strength,1)}
             </td>
+
 
             <td>
                 ₹${nf(r.price)}
             </td>
 
+
             <td class="gap">
                 ${nf(r.gap,4)}%
             </td>
+
 
             <td>
                 ${nf(r.recovery,2)}%
             </td>
 
+
             <td>
                 ${nf(r.gain,2)}%
             </td>
+
 
             <td>
                 ${cr(r.avg_turnover_cr)}
             </td>
 
+
             <td>
                 ${cr(r.live_turnover_cr)}
             </td>
 
+
             <td>
                 ${nf(ratio,2)}×
             </td>
+
 
         </tr>
 
@@ -758,11 +782,14 @@ function updateScreen(data){
     const status =
         document.getElementById("status");
 
+
     const progress =
         document.getElementById("progress");
 
+
     const progressText =
         document.getElementById("progressText");
+
 
     const errorBox =
         document.getElementById("errorBox");
@@ -779,35 +806,42 @@ function updateScreen(data){
         status.textContent =
             "Scanner में समस्या";
 
+
         progress.style.width =
             "0%";
 
     }
+
 
     else if(data.running){
 
         status.textContent =
             "Scanner चल रहा है...";
 
+
         progress.style.width =
             "70%";
 
     }
+
 
     else if(data.finished){
 
         status.textContent =
             "Scanner पूरा हो गया";
 
+
         progress.style.width =
             "100%";
 
     }
 
+
     else{
 
         status.textContent =
             "Scanner तैयार है";
+
 
         progress.style.width =
             "0%";
@@ -821,6 +855,7 @@ function updateScreen(data){
             "Live candidates और 20-day liquidity check चल रहा है...";
 
     }
+
 
     else{
 
@@ -841,10 +876,12 @@ function updateScreen(data){
         errorBox.style.display =
             "block";
 
+
         errorBox.textContent =
             data.message;
 
     }
+
 
     else{
 
@@ -887,17 +924,21 @@ async function getScanStatus(){
 
     }
 
+
     catch(e){
 
         const box =
             document.getElementById("errorBox");
 
+
         box.style.display =
             "block";
+
 
         box.textContent =
             "Server से data नहीं मिल रहा: " +
             e.message;
+
 
         return null;
 
@@ -918,6 +959,7 @@ async function scanNow(){
 
     btn.disabled =
         true;
+
 
     btn.textContent =
         "Scanning...";
@@ -966,11 +1008,14 @@ async function scanNow(){
                             polling
                         );
 
+
                         polling =
                             null;
 
+
                         btn.disabled =
                             false;
+
 
                         btn.textContent =
                             "Scan Now";
@@ -981,8 +1026,8 @@ async function scanNow(){
                 2000
             );
 
-
     }
+
 
     catch(e){
 
