@@ -3,18 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Open-Low Strength Scanner</title>
 
 <style>
-
 *{
     box-sizing:border-box;
 }
 
 body{
     margin:0;
-    padding:8px;
+    padding:10px;
     background:#11151a;
     color:#e8edf3;
     font-family:Arial,Helvetica,sans-serif;
@@ -28,37 +26,37 @@ body{
 .card{
     background:#1b2027;
     border:1px solid #2d3540;
-    border-radius:16px;
-    padding:12px;
-    margin-bottom:10px;
+    border-radius:18px;
+    padding:14px;
+    margin-bottom:12px;
 }
 
 h1{
     margin:0;
-    font-size:25px;
+    font-size:27px;
 }
 
 .sub{
     color:#aeb8c5;
-    margin-top:6px;
+    margin-top:7px;
 }
 
 .status{
     background:#242b35;
-    border-radius:12px;
-    padding:11px;
-    font-size:17px;
+    border-radius:13px;
+    padding:12px;
+    font-size:18px;
     font-weight:bold;
 }
 
 button{
-    margin-top:11px;
+    margin-top:12px;
     background:#2f6df6;
     color:#fff;
     border:0;
-    border-radius:11px;
-    padding:12px 20px;
-    font-size:17px;
+    border-radius:12px;
+    padding:12px 21px;
+    font-size:18px;
     font-weight:bold;
 }
 
@@ -67,10 +65,10 @@ button:disabled{
 }
 
 .progress-wrap{
-    margin-top:11px;
+    margin-top:12px;
     background:#2a313b;
-    border-radius:9px;
-    height:10px;
+    border-radius:10px;
+    height:11px;
     overflow:hidden;
 }
 
@@ -81,9 +79,8 @@ button:disabled{
 }
 
 .info{
-    margin-top:8px;
+    margin-top:9px;
     color:#aeb8c5;
-    font-size:14px;
 }
 
 .filters{
@@ -95,29 +92,28 @@ button:disabled{
 .filter{
     background:#181d23;
     border:1px solid #29313b;
-    border-radius:12px;
-    padding:10px;
+    border-radius:13px;
+    padding:11px;
 }
 
 .ft{
-    font-size:12px;
+    font-size:13px;
     color:#8f9baa;
 }
 
 .fv{
-    font-size:17px;
+    font-size:18px;
     font-weight:bold;
-    margin-top:3px;
+    margin-top:4px;
 }
 
 .table-wrap{
     overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
 }
 
 table{
     width:100%;
-    min-width:850px;
+    min-width:1000px;
     border-collapse:collapse;
     table-layout:auto;
 }
@@ -126,13 +122,13 @@ th{
     background:#242b35;
     color:#aeb8c5;
     text-align:center;
-    padding:7px 4px;
+    padding:8px 4px;
     white-space:nowrap;
     font-size:13px;
 }
 
 td{
-    padding:7px 4px;
+    padding:8px 4px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
     text-align:center;
@@ -141,13 +137,13 @@ td{
 
 .symbol{
     font-weight:bold;
-    font-size:14px;
+    font-size:15px;
     text-align:left;
 }
 
 .strength{
     font-weight:bold;
-    font-size:15px;
+    font-size:16px;
 }
 
 .gap{
@@ -155,30 +151,29 @@ td{
 }
 
 .empty{
-    padding:18px;
+    padding:20px;
     color:#aeb8c5;
 }
 
 .error{
     display:none;
-    margin-top:9px;
+    margin-top:10px;
     background:#3a2025;
     border:1px solid #6b3039;
     color:#ffb7bf;
-    border-radius:9px;
-    padding:9px;
+    border-radius:10px;
+    padding:10px;
 }
 
 .logic{
     color:#c2cad4;
-    line-height:1.5;
-    font-size:14px;
+    line-height:1.6;
 }
 
 
 /* =========================================================
    BLUE STRONG SHARE ROW
-   पुरानी condition वही रखी गई है
+   सभी 5 conditions true होने पर पूरी row blue होगी
    ========================================================= */
 
 .strong-row td{
@@ -201,8 +196,7 @@ td{
 
 /* =========================================================
    MOBILE
-   केवल SPACE कम किया गया है
-   CONDITIONS में कोई बदलाव नहीं
+   केवल spacing कम की गई है
    ========================================================= */
 
 @media(max-width:700px){
@@ -212,13 +206,12 @@ td{
     }
 
     h1{
-        font-size:22px;
+        font-size:23px;
     }
 
     .card{
-        padding:10px;
-        border-radius:14px;
-        margin-bottom:8px;
+        padding:11px;
+        margin-bottom:10px;
     }
 
     .filters{
@@ -227,49 +220,37 @@ td{
     }
 
     .filter{
-        padding:8px;
-    }
-
-    .ft{
-        font-size:11px;
+        padding:9px;
     }
 
     .fv{
-        font-size:15px;
+        font-size:17px;
     }
 
     .table-wrap{
-        margin:0;
-        width:100%;
         overflow-x:auto;
     }
 
-    /*
-       पहले 1120px था।
-       अब 850px किया गया है ताकि
-       मोबाइल पर कम खिसकाना पड़े।
-    */
-
     table{
-        min-width:850px;
+        min-width:1000px;
     }
 
     th{
-        padding:6px 3px;
+        padding:7px 3px;
         font-size:11px;
     }
 
     td{
-        padding:6px 3px;
+        padding:7px 3px;
         font-size:11px;
     }
 
     .symbol{
-        font-size:12px;
+        font-size:13px;
     }
 
     .strength{
-        font-size:13px;
+        font-size:14px;
     }
 
     .gap{
@@ -279,13 +260,7 @@ td{
     #resultsTitle{
         font-size:19px;
     }
-
-    .logic{
-        font-size:13px;
-    }
-
 }
-
 </style>
 </head>
 
@@ -294,10 +269,6 @@ td{
 
 <div class="container">
 
-
-<!-- =====================================================
-     HEADER
-     ===================================================== -->
 
 <div class="card">
 
@@ -309,10 +280,6 @@ td{
 
 </div>
 
-
-<!-- =====================================================
-     STATUS
-     ===================================================== -->
 
 <div class="card">
 
@@ -337,76 +304,36 @@ td{
 </div>
 
 
-<!-- =====================================================
-     FILTERS
-     ===================================================== -->
-
 <div class="filters">
 
     <div class="filter">
-
-        <div class="ft">
-            Price
-        </div>
-
-        <div class="fv">
-            &gt; ₹20
-        </div>
-
+        <div class="ft">Price</div>
+        <div class="fv">&gt; ₹20</div>
     </div>
 
-
     <div class="filter">
-
-        <div class="ft">
-            Open-Low Gap
-        </div>
-
-        <div class="fv">
-            ≤ 0.50%
-        </div>
-
+        <div class="ft">Open-Low Gap</div>
+        <div class="fv">≤ 0.50%</div>
     </div>
 
-
     <div class="filter">
-
-        <div class="ft">
-            20D Liquidity
-        </div>
-
-        <div class="fv">
-            ≥ ₹10 Cr
-        </div>
-
+        <div class="ft">20D Liquidity</div>
+        <div class="fv">≥ ₹10 Cr</div>
     </div>
 
-
     <div class="filter">
-
-        <div class="ft">
-            Universe
-        </div>
-
-        <div class="fv">
-            NSE EQ Only
-        </div>
-
+        <div class="ft">Universe</div>
+        <div class="fv">NSE EQ Only</div>
     </div>
 
 </div>
 
 
-<!-- =====================================================
-     RESULTS
-     ===================================================== -->
-
-<div class="card" style="margin-top:10px">
+<div class="card" style="margin-top:12px">
 
     <h2 id="resultsTitle" style="margin-top:0">
         Results: 0
     </h2>
-
 
     <div class="table-wrap">
 
@@ -415,27 +342,16 @@ td{
             <thead>
 
                 <tr>
-
                     <th>Rank</th>
-
                     <th>Share</th>
-
                     <th>Strength</th>
-
                     <th>LTP</th>
-
                     <th>Gap</th>
-
                     <th>Recovery</th>
-
                     <th>Gain</th>
-
                     <th>Avg 20D Turnover</th>
-
                     <th>Live Turnover</th>
-
                     <th>Turnover Ratio</th>
-
                 </tr>
 
             </thead>
@@ -444,14 +360,9 @@ td{
             <tbody id="resultsBody">
 
                 <tr>
-
-                    <td
-                        colspan="10"
-                        class="empty"
-                    >
+                    <td colspan="10" class="empty">
                         अभी scan शुरू नहीं हुआ है।
                     </td>
-
                 </tr>
 
             </tbody>
@@ -463,84 +374,65 @@ td{
 </div>
 
 
-<!-- =====================================================
-     LOGIC
-     ===================================================== -->
-
 <div class="card logic">
 
     <h3 style="margin-top:0">
         Ranking Logic
     </h3>
 
-
     <div>
         • Price &gt; ₹20
     </div>
-
 
     <div>
         • LTP &gt; Today's Open
     </div>
 
-
     <div>
         • Open-Low Gap ≤ 0.50%
     </div>
-
 
     <div>
         • Previous 20 valid trading days Average Real Turnover ≥ ₹10 Cr
     </div>
 
-
     <div>
         • NSE EQ only, ETF / BE / BZ / SME excluded
     </div>
-
 
     <div>
         • Strength Score: Gap 30% + Recovery 25% + Gain 15% + Live Turnover 20% + 20D Turnover 10%
     </div>
 
-
     <div>
         • Rank 1 = सबसे मजबूत qualifying share
     </div>
 
-
     <br>
-
 
     <div>
         <b>🔵 Blue Strong Share Rule</b>
     </div>
 
-
     <div>
         • Strength ≥ 84
     </div>
-
 
     <div>
         • Gain ≥ 3%
     </div>
 
-
     <div>
         • Recovery ≥ 1.5%
     </div>
-
 
     <div>
         • Turnover Ratio ≥ 2.5×
     </div>
 
-
     <div>
         • Open-Low Gap ≤ 0.15%
     </div>
-
 
     <div>
         • सभी 5 conditions एक साथ true होना जरूरी है
@@ -548,12 +440,10 @@ td{
 
 </div>
 
-
 </div>
 
 
 <script>
-
 
 let polling = null;
 
@@ -608,7 +498,6 @@ function cr(v){
 function turnoverRatio(live,avg){
 
     live = Number(live || 0);
-
     avg = Number(avg || 0);
 
     if(
@@ -625,7 +514,7 @@ function turnoverRatio(live,avg){
 
 /* =========================================================
    BLUE STRONG SHARE RULE
-   पुरानी conditions बिल्कुल वही
+   सभी 5 conditions जरूरी हैं
    ========================================================= */
 
 function isStrongShare(r){
@@ -647,7 +536,6 @@ function isStrongShare(r){
             r.live_turnover_cr,
             r.avg_turnover_cr
         );
-
 
     return (
 
@@ -672,15 +560,10 @@ function isStrongShare(r){
 function renderResults(results){
 
     const body =
-        document.getElementById(
-            "resultsBody"
-        );
+        document.getElementById("resultsBody");
 
     const title =
-        document.getElementById(
-            "resultsTitle"
-        );
-
+        document.getElementById("resultsTitle");
 
     title.textContent =
         "Results: " + results.length;
@@ -689,98 +572,76 @@ function renderResults(results){
     if(!results.length){
 
         body.innerHTML = `
-
             <tr>
-
-                <td
-                    colspan="10"
-                    class="empty"
-                >
+                <td colspan="10" class="empty">
                     अभी कोई share सभी conditions पास नहीं कर रहा है।
                 </td>
-
             </tr>
-
         `;
 
         return;
     }
 
 
-    body.innerHTML =
-        results.map((r,i)=>{
+    body.innerHTML = results.map((r,i)=>{
 
-            const ratio =
-                turnoverRatio(
-                    r.live_turnover_cr,
-                    r.avg_turnover_cr
-                );
+        const ratio =
+            turnoverRatio(
+                r.live_turnover_cr,
+                r.avg_turnover_cr
+            );
 
-
-            const strong =
-                isStrongShare(r);
+        const strong =
+            isStrongShare(r);
 
 
-            return `
+        return `
 
-            <tr
-                class="${strong ? "strong-row" : ""}"
-            >
+        <tr class="${strong ? "strong-row" : ""}">
 
-                <td>
-                    ${i+1}
-                </td>
+            <td>${i+1}</td>
 
+            <td class="symbol">
+                ${r.symbol || "-"}
+            </td>
 
-                <td class="symbol">
-                    ${r.symbol || "-"}
-                </td>
+            <td class="strength">
+                ${nf(r.strength,1)}
+            </td>
 
+            <td>
+                ₹${nf(r.price)}
+            </td>
 
-                <td class="strength">
-                    ${nf(r.strength,1)}
-                </td>
+            <td class="gap">
+                ${nf(r.gap,4)}%
+            </td>
 
+            <td>
+                ${nf(r.recovery,2)}%
+            </td>
 
-                <td>
-                    ₹${nf(r.price)}
-                </td>
+            <td>
+                ${nf(r.gain,2)}%
+            </td>
 
+            <td>
+                ${cr(r.avg_turnover_cr)}
+            </td>
 
-                <td class="gap">
-                    ${nf(r.gap,4)}%
-                </td>
+            <td>
+                ${cr(r.live_turnover_cr)}
+            </td>
 
+            <td>
+                ${nf(ratio,2)}×
+            </td>
 
-                <td>
-                    ${nf(r.recovery,2)}%
-                </td>
+        </tr>
 
+        `;
 
-                <td>
-                    ${nf(r.gain,2)}%
-                </td>
-
-
-                <td>
-                    ${cr(r.avg_turnover_cr)}
-                </td>
-
-
-                <td>
-                    ${cr(r.live_turnover_cr)}
-                </td>
-
-
-                <td>
-                    ${nf(ratio,2)}×
-                </td>
-
-            </tr>
-
-            `;
-
-        }).join("");
+    }).join("");
 
 }
 
@@ -797,27 +658,16 @@ function updateScreen(data){
 
 
     const status =
-        document.getElementById(
-            "status"
-        );
-
+        document.getElementById("status");
 
     const progress =
-        document.getElementById(
-            "progress"
-        );
-
+        document.getElementById("progress");
 
     const progressText =
-        document.getElementById(
-            "progressText"
-        );
-
+        document.getElementById("progressText");
 
     const errorBox =
-        document.getElementById(
-            "errorBox"
-        );
+        document.getElementById("errorBox");
 
 
     const results =
@@ -887,9 +737,7 @@ function updateScreen(data){
 
     if(
         data.message &&
-        data.message
-            .toLowerCase()
-            .includes("error")
+        data.message.toLowerCase().includes("error")
     ){
 
         errorBox.style.display =
@@ -944,19 +792,14 @@ async function getScanStatus(){
     catch(e){
 
         const box =
-            document.getElementById(
-                "errorBox"
-            );
-
+            document.getElementById("errorBox");
 
         box.style.display =
             "block";
 
-
         box.textContent =
             "Server से data नहीं मिल रहा: " +
             e.message;
-
 
         return null;
 
@@ -972,14 +815,11 @@ async function getScanStatus(){
 async function scanNow(){
 
     const btn =
-        document.getElementById(
-            "scanButton"
-        );
+        document.getElementById("scanButton");
 
 
     btn.disabled =
         true;
-
 
     btn.textContent =
         "Scanning...";
@@ -1028,14 +868,11 @@ async function scanNow(){
                             polling
                         );
 
-
                         polling =
                             null;
 
-
                         btn.disabled =
                             false;
-
 
                         btn.textContent =
                             "Scan Now";
@@ -1052,9 +889,7 @@ async function scanNow(){
     catch(e){
 
         const box =
-            document.getElementById(
-                "errorBox"
-            );
+            document.getElementById("errorBox");
 
 
         box.style.display =
