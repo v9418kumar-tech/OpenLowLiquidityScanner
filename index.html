@@ -248,62 +248,52 @@ td{
         text-overflow:clip;
     }
 
-    /* Rank */
     th:nth-child(1),
     td:nth-child(1){
         width:42px;
     }
 
-    /* Share */
     th:nth-child(2),
     td:nth-child(2){
         width:100px;
         text-align:left;
     }
 
-    /* Strength */
     th:nth-child(3),
     td:nth-child(3){
         width:70px;
     }
 
-    /* LTP */
     th:nth-child(4),
     td:nth-child(4){
         width:75px;
     }
 
-    /* Gap */
     th:nth-child(5),
     td:nth-child(5){
         width:70px;
     }
 
-    /* Recovery */
     th:nth-child(6),
     td:nth-child(6){
         width:80px;
     }
 
-    /* Gain */
     th:nth-child(7),
     td:nth-child(7){
         width:65px;
     }
 
-    /* Average 20D Turnover */
     th:nth-child(8),
     td:nth-child(8){
         width:105px;
     }
 
-    /* Live Turnover */
     th:nth-child(9),
     td:nth-child(9){
         width:105px;
     }
 
-    /* Turnover Ratio */
     th:nth-child(10),
     td:nth-child(10){
         width:90px;
@@ -523,7 +513,7 @@ Ranking Logic
 </div>
 
 <div>
-• Turnover Ratio ≥ 0.25×
+• Turnover Ratio ≥ 2.5×
 </div>
 
 <div>
@@ -637,7 +627,7 @@ function isStrongShare(r){
         strength >= 84 &&
         gain >= 3 &&
         recovery >= 1.5 &&
-        ratio >= 0.25 &&
+        ratio >= 2.5 &&
         gap <= 0.15
     );
 }
