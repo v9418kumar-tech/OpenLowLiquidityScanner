@@ -6,13 +6,14 @@
 <title>Open-Low Strength Scanner</title>
 
 <style>
+
 *{
     box-sizing:border-box;
 }
 
 body{
     margin:0;
-    padding:10px;
+    padding:8px;
     background:#11151a;
     color:#e8edf3;
     font-family:Arial,Helvetica,sans-serif;
@@ -27,7 +28,7 @@ body{
     background:#1b2027;
     border:1px solid #2d3540;
     border-radius:18px;
-    padding:14px;
+    padding:12px;
     margin-bottom:12px;
 }
 
@@ -55,7 +56,7 @@ button{
     color:#fff;
     border:0;
     border-radius:12px;
-    padding:12px 21px;
+    padding:13px 22px;
     font-size:18px;
     font-weight:bold;
 }
@@ -68,7 +69,7 @@ button:disabled{
     margin-top:12px;
     background:#2a313b;
     border-radius:10px;
-    height:11px;
+    height:12px;
     overflow:hidden;
 }
 
@@ -109,36 +110,97 @@ button:disabled{
 
 .table-wrap{
     overflow-x:auto;
+    width:100%;
 }
 
 table{
     width:100%;
-    min-width:1000px;
+    min-width:850px;
     border-collapse:collapse;
-    table-layout:auto;
+    table-layout:fixed;
 }
+
+/* =========================================================
+   COMPACT COLUMN WIDTHS
+   सभी 10 columns रखे गए हैं
+   केवल खाली space कम किया गया है
+   ========================================================= */
 
 th{
     background:#242b35;
     color:#aeb8c5;
     text-align:center;
-    padding:8px 4px;
+    padding:8px 3px;
     white-space:nowrap;
     font-size:13px;
 }
 
 td{
-    padding:8px 4px;
+    padding:8px 3px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
     text-align:center;
     font-size:13px;
 }
 
+/* Column widths */
+
+th:nth-child(1),
+td:nth-child(1){
+    width:6%;
+}
+
+th:nth-child(2),
+td:nth-child(2){
+    width:14%;
+}
+
+th:nth-child(3),
+td:nth-child(3){
+    width:10%;
+}
+
+th:nth-child(4),
+td:nth-child(4){
+    width:10%;
+}
+
+th:nth-child(5),
+td:nth-child(5){
+    width:9%;
+}
+
+th:nth-child(6),
+td:nth-child(6){
+    width:9%;
+}
+
+th:nth-child(7),
+td:nth-child(7){
+    width:9%;
+}
+
+th:nth-child(8),
+td:nth-child(8){
+    width:13%;
+}
+
+th:nth-child(9),
+td:nth-child(9){
+    width:12%;
+}
+
+th:nth-child(10),
+td:nth-child(10){
+    width:8%;
+}
+
 .symbol{
     font-weight:bold;
     font-size:15px;
     text-align:left;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
 
 .strength{
@@ -196,7 +258,6 @@ td{
 
 /* =========================================================
    MOBILE
-   केवल spacing कम की गई है
    ========================================================= */
 
 @media(max-width:700px){
@@ -210,7 +271,7 @@ td{
     }
 
     .card{
-        padding:11px;
+        padding:10px;
         margin-bottom:10px;
     }
 
@@ -223,26 +284,25 @@ td{
         padding:9px;
     }
 
-    .fv{
-        font-size:17px;
-    }
-
     .table-wrap{
         overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
     }
+
+    /*
+       पहले 1120px था।
+       अब 850px किया गया है ताकि
+       horizontal movement कम हो।
+    */
 
     table{
-        min-width:1000px;
+        min-width:850px;
     }
 
-    th{
-        padding:7px 3px;
-        font-size:11px;
-    }
-
+    th,
     td{
-        padding:7px 3px;
-        font-size:11px;
+        padding:7px 2px;
+        font-size:12px;
     }
 
     .symbol{
@@ -254,13 +314,42 @@ td{
     }
 
     .gap{
-        font-size:11px;
+        font-size:12px;
     }
 
     #resultsTitle{
         font-size:19px;
     }
+
 }
+
+
+/* =========================================================
+   VERY SMALL MOBILE
+   ========================================================= */
+
+@media(max-width:430px){
+
+    table{
+        min-width:850px;
+    }
+
+    th,
+    td{
+        padding:7px 2px;
+        font-size:11px;
+    }
+
+    .symbol{
+        font-size:12px;
+    }
+
+    .strength{
+        font-size:13px;
+    }
+
+}
+
 </style>
 </head>
 
@@ -342,6 +431,7 @@ td{
             <thead>
 
                 <tr>
+
                     <th>Rank</th>
                     <th>Share</th>
                     <th>Strength</th>
@@ -352,6 +442,7 @@ td{
                     <th>Avg 20D Turnover</th>
                     <th>Live Turnover</th>
                     <th>Turnover Ratio</th>
+
                 </tr>
 
             </thead>
@@ -360,9 +451,11 @@ td{
             <tbody id="resultsBody">
 
                 <tr>
+
                     <td colspan="10" class="empty">
                         अभी scan शुरू नहीं हुआ है।
                     </td>
+
                 </tr>
 
             </tbody>
@@ -439,6 +532,7 @@ td{
     </div>
 
 </div>
+
 
 </div>
 
@@ -565,6 +659,7 @@ function renderResults(results){
     const title =
         document.getElementById("resultsTitle");
 
+
     title.textContent =
         "Results: " + results.length;
 
@@ -591,6 +686,7 @@ function renderResults(results){
                 r.avg_turnover_cr
             );
 
+
         const strong =
             isStrongShare(r);
 
@@ -599,7 +695,9 @@ function renderResults(results){
 
         <tr class="${strong ? "strong-row" : ""}">
 
-            <td>${i+1}</td>
+            <td>
+                ${i+1}
+            </td>
 
             <td class="symbol">
                 ${r.symbol || "-"}
