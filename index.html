@@ -13,7 +13,7 @@
 
 body{
     margin:0;
-    padding:8px;
+    padding:6px;
     background:#11151a;
     color:#e8edf3;
     font-family:Arial,Helvetica,sans-serif;
@@ -27,36 +27,37 @@ body{
 .card{
     background:#1b2027;
     border:1px solid #2d3540;
-    border-radius:16px;
-    padding:12px;
-    margin-bottom:12px;
+    border-radius:14px;
+    padding:10px;
+    margin-bottom:10px;
 }
 
 h1{
     margin:0;
-    font-size:25px;
+    font-size:24px;
 }
 
 .sub{
     color:#aeb8c5;
-    margin-top:6px;
+    margin-top:5px;
+    font-size:14px;
 }
 
 .status{
     background:#242b35;
-    border-radius:11px;
-    padding:11px;
+    border-radius:10px;
+    padding:10px;
     font-size:17px;
     font-weight:bold;
 }
 
 button{
-    margin-top:11px;
+    margin-top:10px;
     background:#2f6df6;
     color:#fff;
     border:0;
-    border-radius:11px;
-    padding:12px 20px;
+    border-radius:10px;
+    padding:11px 19px;
     font-size:17px;
     font-weight:bold;
 }
@@ -66,9 +67,9 @@ button:disabled{
 }
 
 .progress-wrap{
-    margin-top:11px;
+    margin-top:10px;
     background:#2a313b;
-    border-radius:9px;
+    border-radius:8px;
     height:10px;
     overflow:hidden;
 }
@@ -80,30 +81,31 @@ button:disabled{
 }
 
 .info{
-    margin-top:8px;
+    margin-top:7px;
     color:#aeb8c5;
+    font-size:13px;
 }
 
 .filters{
     display:grid;
     grid-template-columns:repeat(4,1fr);
-    gap:8px;
+    gap:7px;
 }
 
 .filter{
     background:#181d23;
     border:1px solid #29313b;
-    border-radius:11px;
-    padding:10px;
+    border-radius:10px;
+    padding:9px;
 }
 
 .ft{
-    font-size:12px;
+    font-size:11px;
     color:#8f9baa;
 }
 
 .fv{
-    font-size:17px;
+    font-size:16px;
     font-weight:bold;
     margin-top:3px;
 }
@@ -113,39 +115,98 @@ button:disabled{
     -webkit-overflow-scrolling:touch;
 }
 
+/*
+   COMPACT TABLE
+   सभी 10 columns रखे गए हैं।
+   केवल columns के बीच की खाली जगह कम की गई है।
+*/
+
 table{
     width:100%;
-    min-width:900px;
+    min-width:780px;
     border-collapse:collapse;
-    table-layout:auto;
+    table-layout:fixed;
+}
+
+/* Column widths */
+
+th:nth-child(1),
+td:nth-child(1){
+    width:42px;
+}
+
+th:nth-child(2),
+td:nth-child(2){
+    width:92px;
+}
+
+th:nth-child(3),
+td:nth-child(3){
+    width:65px;
+}
+
+th:nth-child(4),
+td:nth-child(4){
+    width:78px;
+}
+
+th:nth-child(5),
+td:nth-child(5){
+    width:62px;
+}
+
+th:nth-child(6),
+td:nth-child(6){
+    width:72px;
+}
+
+th:nth-child(7),
+td:nth-child(7){
+    width:60px;
+}
+
+th:nth-child(8),
+td:nth-child(8){
+    width:105px;
+}
+
+th:nth-child(9),
+td:nth-child(9){
+    width:105px;
+}
+
+th:nth-child(10),
+td:nth-child(10){
+    width:65px;
 }
 
 th{
     background:#242b35;
     color:#aeb8c5;
     text-align:center;
-    padding:8px 4px;
-    white-space:nowrap;
-    font-size:12px;
+    padding:7px 2px;
+    white-space:normal;
+    font-size:11px;
+    line-height:1.15;
 }
 
 td{
-    padding:8px 4px;
+    padding:7px 2px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
     text-align:center;
-    font-size:13px;
+    font-size:12px;
 }
 
 .symbol{
     font-weight:bold;
-    font-size:14px;
+    font-size:13px;
     text-align:left;
 }
 
 .strength{
     font-weight:bold;
-    font-size:15px;
+    font-size:14px;
 }
 
 .gap{
@@ -170,11 +231,13 @@ td{
 .logic{
     color:#c2cad4;
     line-height:1.5;
+    font-size:13px;
 }
 
 
 /* =========================================================
    BLUE STRONG SHARE ROW
+   Share Name भी सफेद और bold
    ========================================================= */
 
 .strong-row td{
@@ -202,7 +265,7 @@ td{
 @media(max-width:700px){
 
     body{
-        padding:6px;
+        padding:5px;
     }
 
     h1{
@@ -210,61 +273,55 @@ td{
     }
 
     .sub{
-        font-size:13px;
+        font-size:12px;
     }
 
     .card{
-        padding:10px;
-        border-radius:14px;
+        padding:9px;
+        border-radius:13px;
     }
 
     .filters{
         grid-template-columns:1fr 1fr;
-        gap:7px;
+        gap:6px;
     }
 
     .filter{
-        padding:9px;
+        padding:8px;
     }
 
     .ft{
-        font-size:11px;
+        font-size:10px;
     }
 
     .fv{
-        font-size:16px;
+        font-size:15px;
     }
 
     .table-wrap{
         overflow-x:auto;
     }
 
-    /*
-       पहले 1120px था।
-       अब 900px किया गया है ताकि
-       mobile पर table compact रहे।
-    */
-
     table{
-        min-width:900px;
+        min-width:780px;
     }
 
     th{
-        padding:7px 3px;
-        font-size:11px;
+        padding:6px 2px;
+        font-size:10px;
     }
 
     td{
-        padding:7px 3px;
-        font-size:12px;
+        padding:6px 2px;
+        font-size:11px;
     }
 
     .symbol{
-        font-size:13px;
+        font-size:12px;
     }
 
     .strength{
-        font-size:14px;
+        font-size:13px;
     }
 
     .gap{
@@ -392,7 +449,7 @@ td{
      RESULTS
      ====================================================== -->
 
-<div class="card" style="margin-top:12px">
+<div class="card" style="margin-top:10px">
 
     <h2 id="resultsTitle" style="margin-top:0">
         Results: 0
