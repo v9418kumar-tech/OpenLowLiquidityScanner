@@ -21,7 +21,7 @@ INSTR_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complet
 IST = timezone(timedelta(hours=5, minutes=30))
 
 MIN_PRICE = 20.0
-MAX_GAP = 0.50
+MAX_GAP = 2.50
 MIN_AVG_TURNOVER = 10_00_00_000.0
 LIQUIDITY_DAYS = 20
 
