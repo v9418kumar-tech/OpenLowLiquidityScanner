@@ -118,7 +118,7 @@ button:disabled{
 /*
    COMPACT TABLE
    सभी 10 columns रखे गए हैं।
-   केवल columns के बीच की खाली जगह कम की गई है।
+   columns के बीच की horizontal जगह compact रखी गई है।
 */
 
 table{
@@ -190,8 +190,14 @@ th{
     line-height:1.15;
 }
 
+/* =========================================================
+   ROW HEIGHT
+   हर शेयर की पूरी Row थोड़ी ऊँची रखी गई है।
+   Horizontal column spacing नहीं बदली गई।
+   ========================================================= */
+
 td{
-    padding:7px 2px;
+    padding:10px 2px;
     border-bottom:1px solid #2b333e;
     white-space:nowrap;
     text-align:center;
@@ -311,8 +317,9 @@ td{
         font-size:10px;
     }
 
+    /* Mobile में भी Row height बढ़ाई गई है */
     td{
-        padding:6px 2px;
+        padding:9px 2px;
         font-size:11px;
     }
 
