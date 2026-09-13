@@ -1087,7 +1087,7 @@ async function scanNow(){
                     }
 
                 },
-                2000
+                500
             );
 
     }
@@ -1125,21 +1125,7 @@ async function scanNow(){
 
 async function initialLoad(){
 
-    await getScanStatus();
-
-
-    if(polling){
-
-        clearInterval(polling);
-
-    }
-
-
-    polling =
-        setInterval(
-            getScanStatus,
-            3000
-        );
+    await scanNow();
 
 }
 
