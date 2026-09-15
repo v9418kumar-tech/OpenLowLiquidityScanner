@@ -21,8 +21,7 @@ MIN_PRICE = 20.0
 MAX_GAP = 0.50
 MIN_AVG_TURNOVER = 10_00_00_000.0
 LIQUIDITY_DAYS = 20
-MAX_WORKERS = 6
-HIST_MIN_INTERVAL = 0.12
+MAX_WORKERS = 20
 BATCH_SIZE = 500
 CACHE_FILE = "liquidity_cache.json"
 
@@ -65,10 +64,7 @@ def headers():
     token = get_token()
     if not token:
         raise RuntimeError("UPSTOX_ACCESS_TOKEN is missing in Render Environment Variables.")
-    return {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {token}",
-    }
+    return {"Accept": "application/json", "Authorization": f"Bearer {token}"}
 
 
 http = requests.Session()
@@ -92,13 +88,7 @@ def is_real_equity(item):
     short = str(item.get("short_name") or "").upper().strip()
     combined = f"{symbol} {name} {short}"
 
-    for bad in (
-        "ETF",
-        "EXCHANGE TRADED FUND",
-        "MUTUAL FUND",
-        "INDEX FUND",
-        "SME",
-    ):
+    for bad in ("ETF", "EXCHANGE TRADED FUND", "MUTUAL FUND", "INDEX FUND", "SME"):
         if bad in combined:
             return False
 
@@ -111,22 +101,15 @@ def is_real_equity(item):
 def load_instruments(force=False):
     global INSTRUMENTS, BY_KEY, INSTRUMENTS_LOADED_AT
 
-    if (
-        INSTRUMENTS
-        and not force
-        and time.time() - INSTRUMENTS_LOADED_AT < 21600
-    ):
+    if INSTRUMENTS and not force and time.time() - INSTRUMENTS_LOADED_AT < 21600:
         return
 
     log("Downloading Upstox NSE instrument file...")
-
     r = http.get(INSTR_URL, timeout=30)
     r.raise_for_status()
-
     data = json.loads(gzip.decompress(r.content).decode("utf-8"))
 
     selected = []
-
     for item in data:
         try:
             if is_real_equity(item):
@@ -137,7 +120,6 @@ def load_instruments(force=False):
     INSTRUMENTS = selected
     BY_KEY = {x["instrument_key"]: x for x in selected}
     INSTRUMENTS_LOADED_AT = time.time()
-
     log(f"Loaded {len(INSTRUMENTS)} NSE EQ stocks.")
 
 
@@ -151,29 +133,18 @@ def extract_ltpc(feed):
         return {}
 
     ltpc = feed.get("ltpc")
-
     if isinstance(ltpc, dict):
         return ltpc
 
-    for parent_name in (
-        "ff",
-        "fullFeed",
-        "firstLevelWithGreeks",
-    ):
+    for parent_name in ("ff", "fullFeed", "firstLevelWithGreeks"):
         parent = feed.get(parent_name)
-
         if isinstance(parent, dict):
             x = parent.get("ltpc")
-
             if isinstance(x, dict):
                 return x
 
             x = parent.get("marketFF")
-
-            if (
-                isinstance(x, dict)
-                and isinstance(x.get("ltpc"), dict)
-            ):
+            if isinstance(x, dict) and isinstance(x.get("ltpc"), dict):
                 return x["ltpc"]
 
     return {}
@@ -186,7 +157,6 @@ def update_preopen(message):
         return
 
     feeds = message.get("feeds", {})
-
     if not isinstance(feeds, dict):
         return
 
@@ -195,12 +165,10 @@ def update_preopen(message):
     with PREOPEN_LOCK:
         for key, feed in feeds.items():
             meta = BY_KEY.get(key)
-
             if not meta:
                 continue
 
             ltpc = extract_ltpc(feed)
-
             if not ltpc:
                 continue
 
@@ -226,34 +194,28 @@ def update_preopen(message):
             if cp <= 0:
                 continue
 
-            symbol = str(
-                meta.get("trading_symbol") or ""
-            ).upper()
-
+            symbol = str(meta.get("trading_symbol") or "").upper()
             change = ((iep - cp) / cp) * 100.0
 
-            PREOPEN[key] = {
-                "key": key,
-                "symbol": symbol,
-                "iep": iep,
-                "cp": cp,
-                "ltp": ltp,
-                "change": change,
-                "seen": now,
-            }
+            with PREOPEN_LOCK:
+                PREOPEN[key] = {
+                    "key": key,
+                    "symbol": symbol,
+                    "iep": iep,
+                    "cp": cp,
+                    "ltp": ltp,
+                    "change": change,
+                    "seen": now,
+                }
 
         PREOPEN_LAST_UPDATE = now
 
 
 def feed_thread():
-    global PREOPEN_CONNECTED
-    global PREOPEN_ERROR
-    global PREOPEN_STREAMER
+    global PREOPEN_CONNECTED, PREOPEN_ERROR, PREOPEN_STREAMER
 
     if not get_token():
-        PREOPEN_ERROR = (
-            "UPSTOX_ACCESS_TOKEN environment variable is missing."
-        )
+        PREOPEN_ERROR = "UPSTOX_ACCESS_TOKEN environment variable is missing."
         return
 
     try:
@@ -269,74 +231,50 @@ def feed_thread():
         PREOPEN_STREAMER = streamer
 
         def on_open():
-            global PREOPEN_CONNECTED
-            global PREOPEN_ERROR
+            global PREOPEN_CONNECTED, PREOPEN_ERROR
 
             PREOPEN_CONNECTED = True
             PREOPEN_ERROR = ""
 
-            keys = [
-                x["instrument_key"]
-                for x in INSTRUMENTS
-            ]
+            keys = [x["instrument_key"] for x in INSTRUMENTS]
 
             for batch in chunks(keys, 4500):
                 streamer.subscribe(batch, "ltpc")
                 time.sleep(0.5)
 
-            log(
-                f"Pre-open feed subscribed to "
-                f"{len(keys)} NSE EQ instruments."
-            )
+            log(f"Pre-open feed subscribed to {len(keys)} NSE EQ instruments.")
 
         def on_message(message):
             update_preopen(message)
 
         def on_close(*args):
             global PREOPEN_CONNECTED
-
             PREOPEN_CONNECTED = False
-
-            log(
-                f"Upstox pre-open stream closed: {args}"
-            )
+            log(f"Upstox pre-open stream closed: {args}")
 
         def on_error(err):
             global PREOPEN_ERROR
-
             PREOPEN_ERROR = str(err)
-
-            log(
-                f"Upstox pre-open feed error: {err}"
-            )
+            log(f"Upstox pre-open feed error: {err}")
 
         streamer.on("open", on_open)
         streamer.on("message", on_message)
         streamer.on("close", on_close)
         streamer.on("error", on_error)
-
-        streamer.auto_reconnect(
-            True,
-            10,
-            100
-        )
-
+        streamer.auto_reconnect(True, 10, 100)
         streamer.connect()
 
     except Exception as e:
         PREOPEN_CONNECTED = False
         PREOPEN_ERROR = repr(e)
-
-        log(
-            f"Pre-open feed startup error: {repr(e)}"
-        )
+        log(f"Pre-open feed startup error: {repr(e)}")
 
 
 def start_preopen_feed():
     threading.Thread(
         target=feed_thread,
         daemon=True,
-        name="preopen-feed",
+        name="preopen-feed"
     ).start()
 
 
@@ -348,53 +286,10 @@ def session_mode():
     now = ist_now()
     t = now.time()
 
-    if t < datetime.strptime(
-        "09:15",
-        "%H:%M"
-    ).time():
+    if t < datetime.strptime("09:15", "%H:%M").time():
         return "preopen"
 
     return "live"
-
-
-def load_cache():
-    if not os.path.exists(CACHE_FILE):
-        return {}
-
-    try:
-        with open(
-            CACHE_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-            x = json.load(f)
-
-        return x if isinstance(x, dict) else {}
-
-    except Exception:
-        return {}
-
-
-def save_cache(cache):
-    try:
-        tmp = CACHE_FILE + ".tmp"
-
-        with open(
-            tmp,
-            "w",
-            encoding="utf-8"
-        ) as f:
-            json.dump(cache, f)
-
-        os.replace(
-            tmp,
-            CACHE_FILE
-        )
-
-    except Exception as e:
-        log(
-            f"Cache save error: {repr(e)}"
-        )
 
 
 def preopen_results(limit=100):
@@ -408,31 +303,15 @@ def preopen_results(limit=100):
 
     for x in items:
         try:
-            if (
-                x["iep"] <= MIN_PRICE
-                or x["change"] <= 0
-            ):
+            if x["iep"] <= MIN_PRICE or x["change"] <= 0:
                 continue
 
             avg = 0.0
-
             key = x.get("key")
+            cached = cache.get(key) if key else None
 
-            cached = (
-                cache.get(key)
-                if key
-                else None
-            )
-
-            if (
-                isinstance(cached, dict)
-                and cached.get("date") == today
-            ):
-                avg = float(
-                    cached.get(
-                        "avg_turnover"
-                    ) or 0
-                )
+            if isinstance(cached, dict) and cached.get("date") == today:
+                avg = float(cached.get("avg_turnover") or 0)
 
             rows.append({
                 "symbol": x["symbol"],
@@ -440,9 +319,7 @@ def preopen_results(limit=100):
                 "iep": x["iep"],
                 "prev_close": x["cp"],
                 "preopen_gain": x["change"],
-                "avg_turnover_cr": (
-                    avg / 1_00_00_000.0
-                ),
+                "avg_turnover_cr": avg / 1_00_00_000.0,
             })
 
         except Exception:
@@ -451,39 +328,21 @@ def preopen_results(limit=100):
     if not rows:
         return []
 
-    gains = [
-        x["preopen_gain"]
-        for x in rows
-    ]
-
-    avgs = [
-        x["avg_turnover_cr"]
-        for x in rows
-    ]
+    gains = [x["preopen_gain"] for x in rows]
+    avgs = [x["avg_turnover_cr"] for x in rows]
 
     def pct(values, value):
         if len(values) <= 1:
             return 100.0
 
-        return (
-            100.0
-            * (
-                sum(
-                    1
-                    for v in values
-                    if v <= value
-                ) - 1
-            )
-            / (len(values) - 1)
-        )
+        return 100.0 * (
+            sum(1 for v in values if v <= value) - 1
+        ) / (len(values) - 1)
 
     for x in rows:
         gain_score = min(
             100.0,
-            max(
-                0.0,
-                x["preopen_gain"] * 10.0
-            )
+            max(0.0, x["preopen_gain"] * 10.0)
         )
 
         relative_gain = pct(
@@ -492,10 +351,7 @@ def preopen_results(limit=100):
         )
 
         liquidity_score = (
-            pct(
-                avgs,
-                x["avg_turnover_cr"]
-            )
+            pct(avgs, x["avg_turnover_cr"])
             if any(avgs)
             else 50.0
         )
@@ -510,7 +366,7 @@ def preopen_results(limit=100):
         key=lambda x: (
             -x["strength"],
             -x["preopen_gain"],
-            -x["avg_turnover_cr"],
+            -x["avg_turnover_cr"]
         )
     )
 
@@ -519,39 +375,18 @@ def preopen_results(limit=100):
     for x in rows[:limit]:
         out.append({
             "symbol": x["symbol"],
-            "price": round(
-                x["iep"],
-                2
-            ),
-            "iep": round(
-                x["iep"],
-                2
-            ),
-            "prev_close": round(
-                x["prev_close"],
-                2
-            ),
-            "preopen_gain": round(
-                x["preopen_gain"],
-                2
-            ),
-            "strength": round(
-                x["strength"],
-                1
-            ),
-            "avg_turnover_cr": round(
-                x["avg_turnover_cr"],
-                2
-            ),
+            "price": round(x["iep"], 2),
+            "iep": round(x["iep"], 2),
+            "prev_close": round(x["prev_close"], 2),
+            "preopen_gain": round(x["preopen_gain"], 2),
+            "strength": round(x["strength"], 1),
+            "avg_turnover_cr": round(x["avg_turnover_cr"], 2),
         })
 
     return out
 
 
-def _fetch_quote_batch(
-    batch_no,
-    batch
-):
+def _fetch_quote_batch(batch_no, batch):
     keys = ",".join(
         x["instrument_key"]
         for x in batch
@@ -564,12 +399,9 @@ def _fetch_quote_batch(
 
     try:
         r = requests.get(
-            BASE
-            + "/v3/market-quote/quotes",
+            BASE + "/v3/market-quote/quotes",
             headers=headers(),
-            params={
-                "instrument_key": keys
-            },
+            params={"instrument_key": keys},
             timeout=(2, 4),
         )
 
@@ -577,19 +409,12 @@ def _fetch_quote_batch(
             return (
                 batch_no,
                 [],
-                f"HTTP {r.status_code}: "
-                f"{r.text[:250]}"
+                f"HTTP {r.status_code}: {r.text[:250]}"
             )
 
-        data = r.json().get(
-            "data",
-            {}
-        )
+        data = r.json().get("data", {})
 
-        if not isinstance(
-            data,
-            dict
-        ):
+        if not isinstance(data, dict):
             return (
                 batch_no,
                 [],
@@ -599,33 +424,17 @@ def _fetch_quote_batch(
         out = []
 
         for response_key, q in data.items():
-            if not isinstance(
-                q,
-                dict
-            ):
+            if not isinstance(q, dict):
                 continue
 
-            key = (
-                q.get("instrument_token")
-                or response_key
-            )
-
+            key = q.get("instrument_token") or response_key
             q["_instrument_key"] = key
-
             out.append(q)
 
-        return (
-            batch_no,
-            out,
-            None
-        )
+        return batch_no, out, None
 
     except Exception as e:
-        return (
-            batch_no,
-            [],
-            repr(e)
-        )
+        return batch_no, [], repr(e)
 
 
 def fetch_live_quotes():
@@ -650,11 +459,7 @@ def fetch_live_quotes():
         )
 
     all_quotes = []
-
-    workers = min(
-        len(batches),
-        6
-    )
+    workers = min(len(batches), 6)
 
     ex = ThreadPoolExecutor(
         max_workers=workers
@@ -701,9 +506,7 @@ def fetch_live_quotes():
             )
             continue
 
-        all_quotes.extend(
-            quotes
-        )
+        all_quotes.extend(quotes)
 
         log(
             f"Live batch {n}: "
@@ -740,58 +543,44 @@ def fetch_live_quotes():
     return all_quotes
 
 
-def fetch_previous_closes(keys):
-    if not keys:
+def load_cache():
+    if not os.path.exists(CACHE_FILE):
         return {}
 
-    out = {}
+    try:
+        with open(
+            CACHE_FILE,
+            "r",
+            encoding="utf-8"
+        ) as f:
+            x = json.load(f)
 
-    for batch in chunks(
-        keys,
-        BATCH_SIZE
-    ):
-        try:
-            r = http.get(
-                BASE
-                + "/v3/market-quote/ltp",
-                headers=headers(),
-                params={
-                    "instrument_key":
-                        ",".join(batch)
-                },
-                timeout=6,
-            )
+        return x if isinstance(x, dict) else {}
 
-            if r.status_code != 200:
-                continue
+    except Exception:
+        return {}
 
-            data = r.json().get(
-                "data",
-                {}
-            )
 
-            if not isinstance(
-                data,
-                dict
-            ):
-                continue
+def save_cache(cache):
+    try:
+        tmp = CACHE_FILE + ".tmp"
 
-            for key, q in data.items():
-                if (
-                    isinstance(q, dict)
-                    and q.get("cp") is not None
-                ):
-                    try:
-                        out[key] = float(
-                            q["cp"]
-                        )
-                    except Exception:
-                        pass
+        with open(
+            tmp,
+            "w",
+            encoding="utf-8"
+        ) as f:
+            json.dump(cache, f)
 
-        except Exception:
-            continue
+        os.replace(
+            tmp,
+            CACHE_FILE
+        )
 
-    return out
+    except Exception as e:
+        log(
+            f"Cache save error: {repr(e)}"
+        )
 
 
 def historical_20day_turnover(
@@ -821,48 +610,19 @@ def historical_20day_turnover(
         + start.isoformat()
     )
 
-    last_error = None
-    candles = []
+    r = http.get(
+        url,
+        headers=headers(),
+        timeout=8
+    )
 
-    for attempt in range(3):
-        try:
-            r = http.get(
-                url,
-                headers=headers(),
-                timeout=6
-            )
+    r.raise_for_status()
 
-            if r.status_code == 429:
-                time.sleep(
-                    0.6 * (attempt + 1)
-                )
-                continue
-
-            r.raise_for_status()
-
-            candles = (
-                r.json()
-                .get("data", {})
-                .get("candles", [])
-            )
-
-            break
-
-        except Exception as e:
-            last_error = e
-
-            if attempt < 2:
-                time.sleep(
-                    0.3 * (attempt + 1)
-                )
-
-    else:
-        raise (
-            last_error
-            or RuntimeError(
-                "Historical request failed"
-            )
-        )
+    candles = (
+        r.json()
+        .get("data", {})
+        .get("candles", [])
+    )
 
     valid = []
 
@@ -875,10 +635,7 @@ def historical_20day_turnover(
             close = float(c[4])
             volume = float(c[5])
 
-            if (
-                close > 0
-                and volume > 0
-            ):
+            if close > 0 and volume > 0:
                 valid.append(
                     (
                         ts,
@@ -900,9 +657,7 @@ def historical_20day_turnover(
     return (
         sum(
             x[1]
-            for x in valid[
-                :LIQUIDITY_DAYS
-            ]
+            for x in valid[:LIQUIDITY_DAYS]
         )
         / LIQUIDITY_DAYS
     )
@@ -910,50 +665,31 @@ def historical_20day_turnover(
 
 def live_candidates():
     quotes = fetch_live_quotes()
-
     today = ist_now().date()
-
     out = []
 
     for q in quotes:
         try:
-            key = q.get(
-                "_instrument_key"
-            )
-
-            meta = BY_KEY.get(
-                key,
-                {}
-            )
+            key = q.get("_instrument_key")
+            meta = BY_KEY.get(key, {})
 
             symbol = (
-                meta.get(
-                    "trading_symbol"
-                )
+                meta.get("trading_symbol")
                 or q.get("symbol")
                 or ""
             )
 
             ltp = float(
-                q.get(
-                    "last_price"
-                )
+                q.get("last_price")
                 or 0
             )
 
             prev_close = float(
-                q.get(
-                    "prev_close_price"
-                )
-                or q.get(
-                    "prev_close"
-                )
+                q.get("prev_close_price")
                 or 0
             )
 
-            ohlc = q.get(
-                "ohlc"
-            ) or {}
+            ohlc = q.get("ohlc") or {}
 
             op = float(
                 ohlc.get("open")
@@ -972,9 +708,7 @@ def live_candidates():
             )
 
             avg_price = float(
-                q.get(
-                    "average_price"
-                )
+                q.get("average_price")
                 or 0
             )
 
@@ -1031,54 +765,15 @@ def live_candidates():
                 "low": low,
                 "gap": gap,
                 "volume": volume,
-                "live_turnover":
-                    live_turnover,
-                "recovery":
-                    recovery,
+                "live_turnover": live_turnover,
+                "recovery": recovery,
                 "gain": gain,
-                "prev_close":
-                    prev_close,
-                "today":
-                    today.isoformat(),
+                "prev_close": prev_close,
+                "today": today.isoformat(),
             })
 
         except Exception:
             continue
-
-    missing = [
-        x["key"]
-        for x in out
-        if x.get(
-            "prev_close",
-            0
-        ) <= 0
-    ]
-
-    if missing:
-        cp_map = fetch_previous_closes(
-            missing
-        )
-
-        for x in out:
-            if x.get(
-                "prev_close",
-                0
-            ) <= 0:
-                x["prev_close"] = (
-                    cp_map.get(
-                        x["key"],
-                        0
-                    )
-                )
-
-                if x["prev_close"] > 0:
-                    x["gain"] = (
-                        (
-                            x["price"]
-                            - x["prev_close"]
-                        )
-                        / x["prev_close"]
-                    ) * 100.0
 
     out.sort(
         key=lambda x: (
@@ -1092,11 +787,14 @@ def live_candidates():
 
 
 def add_liquidity(candidates):
-    global LIVE_RESULTS
-    global QUALIFIED_TODAY
+    """
+    Check 20D liquidity and permanently capture today's
+    first-time qualifiers.
+    """
+
+    global LIVE_RESULTS, QUALIFIED_TODAY
 
     cache = load_cache()
-
     today = ist_now().date()
     today_key = today.isoformat()
 
@@ -1104,23 +802,15 @@ def add_liquidity(candidates):
     pending = []
 
     for c in candidates:
-        cached = cache.get(
-            c["key"]
-        )
+        cached = cache.get(c["key"])
 
         if (
             isinstance(cached, dict)
-            and cached.get(
-                "date"
-            ) == today_key
-            and cached.get(
-                "avg_turnover"
-            ) is not None
+            and cached.get("date") == today_key
+            and cached.get("avg_turnover") is not None
         ):
             avg = float(
-                cached[
-                    "avg_turnover"
-                ]
+                cached["avg_turnover"]
             )
 
             c["avg_turnover"] = avg
@@ -1144,8 +834,7 @@ def add_liquidity(candidates):
     def publish_partial():
         nonlocal qualified
 
-        global LIVE_RESULTS
-        global QUALIFIED_TODAY
+        global LIVE_RESULTS, QUALIFIED_TODAY
 
         try:
             with QUALIFIED_LOCK:
@@ -1234,10 +923,8 @@ def add_liquidity(candidates):
                     continue
 
                 cache[key] = {
-                    "date":
-                        today_key,
-                    "avg_turnover":
-                        value,
+                    "date": today_key,
+                    "avg_turnover": value
                 }
 
                 c = pending_map.get(
@@ -1245,22 +932,16 @@ def add_liquidity(candidates):
                 )
 
                 if c is not None:
-                    c[
-                        "avg_turnover"
-                    ] = value
+                    c["avg_turnover"] = value
 
-                    if (
-                        value
-                        >= MIN_AVG_TURNOVER
-                    ):
+                    if value >= MIN_AVG_TURNOVER:
                         qualified.append(c)
 
                 publish_partial()
 
                 if (
                     completed % 10 == 0
-                    or completed
-                    == len(pending)
+                    or completed == len(pending)
                 ):
                     log(
                         f"Liquidity progress: "
@@ -1269,7 +950,6 @@ def add_liquidity(candidates):
                     )
 
     save_cache(cache)
-
     publish_partial()
 
     return qualified
@@ -1337,34 +1017,26 @@ def apply_strength_score(items):
     ]
 
     for x in items:
-        x["recovery_score"] = (
-            percentile_score(
-                recovery_values,
-                x["recovery"]
-            )
+        x["recovery_score"] = percentile_score(
+            recovery_values,
+            x["recovery"]
         )
 
-        x["gain_score"] = (
-            percentile_score(
-                gain_values,
-                x["gain"]
-            )
+        x["gain_score"] = percentile_score(
+            gain_values,
+            x["gain"]
         )
 
-        x["live_score"] = (
-            percentile_score(
-                live_values,
-                x["live_turnover"]
-            )
+        x["live_score"] = percentile_score(
+            live_values,
+            x["live_turnover"]
         )
 
-        x["avg_score"] = (
-            percentile_score(
-                avg_values,
-                x.get(
-                    "avg_turnover",
-                    0.0
-                )
+        x["avg_score"] = percentile_score(
+            avg_values,
+            x.get(
+                "avg_turnover",
+                0.0
             )
         )
 
@@ -1407,90 +1079,46 @@ def format_result(x):
     )
 
     return {
-        "symbol":
-            x["symbol"],
+        "symbol": x["symbol"],
+        "price": round(x["price"], 2),
+        "open": round(x["open"], 2),
+        "low": round(x["low"], 2),
+        "gap": round(x["gap"], 4),
+        "recovery": round(x["recovery"], 2),
+        "gain": round(x["gain"], 2),
+        "strength": round(x["strength"], 1),
 
-        "price":
-            round(
-                x["price"],
-                2
-            ),
-
-        "open":
-            round(
-                x["open"],
-                2
-            ),
-
-        "low":
-            round(
-                x["low"],
-                2
-            ),
-
-        "gap":
-            round(
-                x["gap"],
-                4
-            ),
-
-        "recovery":
-            round(
-                x["recovery"],
-                2
-            ),
-
-        "gain":
-            round(
-                x["gain"],
-                2
-            ),
-
-        "strength":
-            round(
-                x["strength"],
-                1
-            ),
-
-        "prev_close":
-            round(
-                float(
-                    x.get(
-                        "prev_close",
-                        0
-                    )
-                    or 0
-                ),
-                2
-            ),
-
-        "avg_turnover_cr":
-            round(
-                avg
-                / 1_00_00_000.0,
-                2
-            ),
-
-        "live_turnover_cr":
-            round(
-                live
-                / 1_00_00_000.0,
-                2
-            ),
-
-        "volume":
-            int(
+        "prev_close": round(
+            float(
                 x.get(
-                    "volume",
+                    "prev_close",
                     0
-                )
+                ) or 0
             ),
+            2
+        ),
 
-        "today":
+        "avg_turnover_cr": round(
+            avg / 1_00_00_000.0,
+            2
+        ),
+
+        "live_turnover_cr": round(
+            live / 1_00_00_000.0,
+            2
+        ),
+
+        "volume": int(
             x.get(
-                "today",
-                ""
-            ),
+                "volume",
+                0
+            )
+        ),
+
+        "today": x.get(
+            "today",
+            ""
+        ),
     }
 
 
@@ -1659,25 +1287,18 @@ def home():
 def health():
     return jsonify({
         "ok": True,
-
         "token_configured":
             bool(get_token()),
-
         "nse_eq_stocks":
             len(INSTRUMENTS),
-
         "scan_running":
             SCAN_RUNNING,
-
         "last_scan":
             LAST_SCAN_TIME,
-
         "last_error":
             LAST_SCAN_ERROR,
-
         "preopen_connected":
             PREOPEN_CONNECTED,
-
         "preopen_last_update": (
             datetime.fromtimestamp(
                 PREOPEN_LAST_UPDATE,
@@ -1688,10 +1309,8 @@ def health():
             if PREOPEN_LAST_UPDATE
             else None
         ),
-
         "mode":
             session_mode(),
-
         "updated_at":
             ist_now().strftime(
                 "%Y-%m-%d %H:%M:%S"
@@ -1824,32 +1443,24 @@ def scan():
 
     return jsonify({
         "mode": "live",
-
         "connected": True,
-
         "running":
             SCAN_RUNNING,
-
         "finished": (
             not SCAN_RUNNING
             and LAST_SCAN_TIME is not None
         ),
-
         "scanned":
             len(INSTRUMENTS),
-
         "results":
             LIVE_RESULTS,
-
         "message":
             LAST_SCAN_ERROR
             or (
                 "Strength scan चल रहा है..."
                 if SCAN_RUNNING
-                else
-                "Scanner तैयार है।"
+                else "Scanner तैयार है।"
             ),
-
         "updated_at":
             LAST_SCAN_TIME
             or
