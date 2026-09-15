@@ -117,12 +117,12 @@ button:disabled{
 
 table{
     width:100%;
-    min-width:850px;
+    min-width:970px;
     border-collapse:collapse;
     table-layout:fixed;
 }
 
-/* Column widths */
+/* COLUMN WIDTHS */
 
 th:nth-child(1),
 td:nth-child(1){
@@ -139,35 +139,34 @@ td:nth-child(3){
     width:65px;
 }
 
-/* NEW: Open Price column */
 th:nth-child(4),
 td:nth-child(4){
-    width:78px;
+    width:82px;
 }
 
 th:nth-child(5),
 td:nth-child(5){
-    width:62px;
+    width:78px;
 }
 
 th:nth-child(6),
 td:nth-child(6){
-    width:72px;
+    width:78px;
 }
 
 th:nth-child(7),
 td:nth-child(7){
-    width:60px;
+    width:65px;
 }
 
 th:nth-child(8),
 td:nth-child(8){
-    width:105px;
+    width:75px;
 }
 
 th:nth-child(9),
 td:nth-child(9){
-    width:105px;
+    width:65px;
 }
 
 th:nth-child(10),
@@ -177,6 +176,11 @@ td:nth-child(10){
 
 th:nth-child(11),
 td:nth-child(11){
+    width:105px;
+}
+
+th:nth-child(12),
+td:nth-child(12){
     width:65px;
 }
 
@@ -298,7 +302,7 @@ td{
     }
 
     table{
-        min-width:850px;
+        min-width:970px;
     }
 
     th{
@@ -457,7 +461,8 @@ td{
 
                     <th>Strength</th>
 
-                    <!-- NEW OPEN PRICE COLUMN -->
+                    <th>Prev Close</th>
+
                     <th>Open</th>
 
                     <th>LTP</th>
@@ -483,7 +488,7 @@ td{
 
                 <tr>
 
-                    <td colspan="11" class="empty">
+                    <td colspan="12" class="empty">
                         अभी scan शुरू नहीं हुआ है।
                     </td>
 
@@ -707,7 +712,7 @@ function renderResults(results){
 
             <tr>
 
-                <td colspan="11" class="empty">
+                <td colspan="12" class="empty">
 
                     अभी कोई share सभी conditions
                     पास नहीं कर रहा है।
@@ -757,7 +762,11 @@ function renderResults(results){
             </td>
 
 
-            <!-- NEW OPEN PRICE -->
+            <td>
+                ₹${nf(r.prev_close)}
+            </td>
+
+
             <td>
                 ₹${nf(r.open)}
             </td>
