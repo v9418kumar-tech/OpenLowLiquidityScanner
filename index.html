@@ -115,15 +115,9 @@ button:disabled{
     -webkit-overflow-scrolling:touch;
 }
 
-/*
-   COMPACT TABLE
-   सभी 10 columns रखे गए हैं।
-   columns के बीच की horizontal जगह compact रखी गई है।
-*/
-
 table{
     width:100%;
-    min-width:780px;
+    min-width:850px;
     border-collapse:collapse;
     table-layout:fixed;
 }
@@ -145,6 +139,7 @@ td:nth-child(3){
     width:65px;
 }
 
+/* NEW: Open Price column */
 th:nth-child(4),
 td:nth-child(4){
     width:78px;
@@ -177,6 +172,11 @@ td:nth-child(9){
 
 th:nth-child(10),
 td:nth-child(10){
+    width:105px;
+}
+
+th:nth-child(11),
+td:nth-child(11){
     width:65px;
 }
 
@@ -189,12 +189,6 @@ th{
     font-size:11px;
     line-height:1.15;
 }
-
-/* =========================================================
-   ROW HEIGHT
-   हर शेयर की पूरी Row थोड़ी ऊँची रखी गई है।
-   Horizontal column spacing नहीं बदली गई।
-   ========================================================= */
 
 td{
     padding:10px 2px;
@@ -241,10 +235,7 @@ td{
 }
 
 
-/* =========================================================
-   BLUE STRONG SHARE ROW
-   Share Name भी सफेद और bold
-   ========================================================= */
+/* BLUE STRONG SHARE ROW */
 
 .strong-row td{
     background:#1557b0;
@@ -264,9 +255,7 @@ td{
 }
 
 
-/* =========================================================
-   MOBILE
-   ========================================================= */
+/* MOBILE */
 
 @media(max-width:700px){
 
@@ -309,7 +298,7 @@ td{
     }
 
     table{
-        min-width:780px;
+        min-width:850px;
     }
 
     th{
@@ -317,7 +306,6 @@ td{
         font-size:10px;
     }
 
-    /* Mobile में भी Row height बढ़ाई गई है */
     td{
         padding:9px 2px;
         font-size:11px;
@@ -350,9 +338,7 @@ td{
 <div class="container">
 
 
-<!-- ======================================================
-     HEADER
-     ====================================================== -->
+<!-- HEADER -->
 
 <div class="card">
 
@@ -365,9 +351,7 @@ td{
 </div>
 
 
-<!-- ======================================================
-     STATUS
-     ====================================================== -->
+<!-- STATUS -->
 
 <div class="card">
 
@@ -392,9 +376,7 @@ td{
 </div>
 
 
-<!-- ======================================================
-     FILTERS
-     ====================================================== -->
+<!-- FILTERS -->
 
 <div class="filters">
 
@@ -452,9 +434,7 @@ td{
 </div>
 
 
-<!-- ======================================================
-     RESULTS
-     ====================================================== -->
+<!-- RESULTS -->
 
 <div class="card" style="margin-top:10px">
 
@@ -476,6 +456,9 @@ td{
                     <th>Share</th>
 
                     <th>Strength</th>
+
+                    <!-- NEW OPEN PRICE COLUMN -->
+                    <th>Open</th>
 
                     <th>LTP</th>
 
@@ -500,7 +483,7 @@ td{
 
                 <tr>
 
-                    <td colspan="10" class="empty">
+                    <td colspan="11" class="empty">
                         अभी scan शुरू नहीं हुआ है।
                     </td>
 
@@ -515,9 +498,7 @@ td{
 </div>
 
 
-<!-- ======================================================
-     LOGIC
-     ====================================================== -->
+<!-- LOGIC -->
 
 <div class="card logic">
 
@@ -597,9 +578,7 @@ td{
 let polling = null;
 
 
-/* =========================================================
-   NUMBER FORMAT
-   ========================================================= */
+/* NUMBER FORMAT */
 
 function nf(v,d=2){
 
@@ -622,9 +601,7 @@ function nf(v,d=2){
 }
 
 
-/* =========================================================
-   CRORE FORMAT
-   ========================================================= */
+/* CRORE FORMAT */
 
 function cr(v){
 
@@ -641,10 +618,7 @@ function cr(v){
 }
 
 
-/* =========================================================
-   TURNOVER RATIO
-   Live Turnover / Average 20D Turnover
-   ========================================================= */
+/* TURNOVER RATIO */
 
 function turnoverRatio(live,avg){
 
@@ -667,10 +641,7 @@ function turnoverRatio(live,avg){
 }
 
 
-/* =========================================================
-   BLUE STRONG SHARE RULE
-   सभी 5 conditions जरूरी हैं
-   ========================================================= */
+/* BLUE STRONG SHARE RULE */
 
 function isStrongShare(r){
 
@@ -714,9 +685,7 @@ function isStrongShare(r){
 }
 
 
-/* =========================================================
-   RENDER RESULTS
-   ========================================================= */
+/* RENDER RESULTS */
 
 function renderResults(results){
 
@@ -738,7 +707,7 @@ function renderResults(results){
 
             <tr>
 
-                <td colspan="10" class="empty">
+                <td colspan="11" class="empty">
 
                     अभी कोई share सभी conditions
                     पास नहीं कर रहा है।
@@ -788,6 +757,12 @@ function renderResults(results){
             </td>
 
 
+            <!-- NEW OPEN PRICE -->
+            <td>
+                ₹${nf(r.open)}
+            </td>
+
+
             <td>
                 ₹${nf(r.price)}
             </td>
@@ -832,9 +807,7 @@ function renderResults(results){
 }
 
 
-/* =========================================================
-   UPDATE SCREEN
-   ========================================================= */
+/* UPDATE SCREEN */
 
 function updateScreen(data){
 
@@ -960,9 +933,7 @@ function updateScreen(data){
 }
 
 
-/* =========================================================
-   GET SCAN STATUS
-   ========================================================= */
+/* GET SCAN STATUS */
 
 async function getScanStatus(){
 
@@ -1011,9 +982,7 @@ async function getScanStatus(){
 }
 
 
-/* =========================================================
-   SCAN NOW
-   ========================================================= */
+/* SCAN NOW */
 
 async function scanNow(){
 
@@ -1119,9 +1088,7 @@ async function scanNow(){
 }
 
 
-/* =========================================================
-   INITIAL LOAD
-   ========================================================= */
+/* INITIAL LOAD */
 
 async function initialLoad(){
 
