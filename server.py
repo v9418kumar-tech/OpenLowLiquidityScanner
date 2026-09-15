@@ -1753,7 +1753,17 @@ def live_candidates():
                     / prev_close
                 ) * 100.0
 
+    # ========================================================
+    # FIX:
+    # Previous Close ko result ke liye preserve karna
+    # ========================================================
+
     for item in output:
+
+        item["prev_close"] = item.get(
+            "_prev_close",
+            0
+        )
 
         item.pop(
             "_prev_close",
@@ -2373,6 +2383,18 @@ def format_result(
 
         "symbol":
             item["symbol"],
+
+        "prev_close":
+            round(
+                float(
+                    item.get(
+                        "prev_close",
+                        0
+                    )
+                    or 0
+                ),
+                2
+            ),
 
         "price":
             round(
